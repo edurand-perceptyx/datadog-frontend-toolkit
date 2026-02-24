@@ -1,0 +1,112 @@
+#!/usr/bin/env node
+
+import { setup } from './commands/setup';
+import { status } from './commands/status';
+
+const args = process.argv.slice(2);
+const command = args[0];
+
+const HELP_TEXT = `
+  datadog-frontend-toolkit CLI
+
+  Usage:
+    dd-toolkit <command> [options]
+
+  Commands:
+    setup     Provision Datadog resources (dashboards, monitors, SLOs)
+    status    Check provisioning status for a service
+
+  Options:
+    --service, -s     Service name (required)
+    --env, -e         Environment (required)
+    --api-key         Datadog API key (or DD_API_KEY env var)
+    --app-key         Datadog Application key (or DD_APP_KEY env var)
+    --site            Datadog site (default: datadoghq.com)
+    --team            Team name for resource ownership
+    --no-dashboards   Skip dashboard provisioning
+    --no-monitors     Skip monitor provisioning
+    --no-slos         Skip SLO provisioning
+    --dry-run         Preview what would be created without making changes
+    --help, -h        Show this help message
+
+  Examples:
+    dd-toolkit setup -s my-app -e production --api-key <key> --app-key <key>
+    dd-toolkit setup -s my-app -e staging --team frontend --dry-run
+    dd-toolkit status -s my-app -e production
+`;
+
+function parseArgs(args: string[]): Record<string, string | boolean> {
+  const parsed: Record<string, string | boolean> = {};
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--help' || arg === '-h') {
+      parsed['help'] = true;
+    } else if (arg === '--dry-run') {
+      parsed['dryRun'] = true;
+    } else if (arg === '--no-dashboards') {
+      parsed['noDashboards'] = true;
+    } else if (arg === '--no-monitors') {
+      parsed['noMonitors'] = true;
+    } else if (arg === '--no-slos') {
+      parsed['noSlos'] = true;
+    } else if ((arg === '--service' || arg === '-s') && args[i + 1]) {
+      parsed['service'] = args[++i];
+    } else if ((arg === '--env' || arg === '-e') && args[i + 1]) {
+      parsed['env'] = args[++i];
+    } else if (arg === '--api-key' && args[i + 1]) {
+      parsed['apiKey'] = args[++i];
+    } else if (arg === '--app-key' && args[i + 1]) {
+      parsed['appKey'] = args[++i];
+    } else if (arg === '--site' && args[i + 1]) {
+      parsed['site'] = args[++i];
+    } else if (arg === '--team' && args[i + 1]) {
+      parsed['team'] = args[++i];
+    }
+  }
+
+  return parsed;
+}
+
+async function main(): Promise<void> {
+  if (!command || command === '--help' || command === '-h') {
+    // eslint-disable-next-line no-console
+    console.log(HELP_TEXT);
+    process.exit(0);
+  }
+
+  const options = parseArgs(args.slice(1));
+
+  if (options['help']) {
+    // eslint-disable-next-line no-console
+    console.log(HELP_TEXT);
+    process.exit(0);
+  }
+
+  try {
+    switch (command) {
+      case 'setup':
+        await setup(options);
+        break;
+      case 'status':
+        await status(options);
+        break;
+      default:
+        // eslint-disable-next-line no-console
+        console.error(`Unknown command: ${command}`);
+        // eslint-disable-next-line no-console
+        console.log(HELP_TEXT);
+        process.exit(1);
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(
+      '\x1b[31m%s\x1b[0m',
+      `Error: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exit(1);
+  }
+}
+
+main();

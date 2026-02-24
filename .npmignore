@@ -1,0 +1,12 @@
+src/
+tests/
+.eslintrc.json
+.prettierrc
+tsconfig*.json
+vitest.config.ts
+coverage/
+*.log
+.DS_Store
+.env
+.env.local
+.github/

@@ -1,0 +1,96 @@
+{
+  "name": "datadog-frontend-toolkit",
+  "version": "1.0.0",
+  "description": "Enterprise-grade, framework-agnostic frontend observability toolkit for Datadog. Auto-instruments RUM, Logs, Error Tracking, Performance Monitoring, and provisions Dashboards, Monitors & SLOs.",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./logger": {
+      "import": "./dist/esm/logger/LoggerService.js",
+      "require": "./dist/cjs/logger/LoggerService.js",
+      "types": "./dist/types/logger/LoggerService.d.ts"
+    }
+  },
+  "bin": {
+    "dd-toolkit": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "npm run build:clean && npm run build:esm && npm run build:cjs && npm run build:types && npm run build:cli",
+    "build:clean": "rm -rf dist",
+    "build:esm": "tsc --project tsconfig.esm.json",
+    "build:cjs": "tsc --project tsconfig.cjs.json",
+    "build:types": "tsc --project tsconfig.types.json",
+    "build:cli": "tsc --project tsconfig.cli.json",
+    "lint": "eslint 'src/**/*.ts'",
+    "lint:fix": "eslint 'src/**/*.ts' --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "datadog",
+    "observability",
+    "monitoring",
+    "rum",
+    "logging",
+    "error-tracking",
+    "performance",
+    "frontend",
+    "apm",
+    "slo",
+    "dashboard",
+    "alerts",
+    "web-vitals",
+    "typescript",
+    "framework-agnostic"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "@datadog/browser-logs": "^5.30.0",
+    "@datadog/browser-rum": "^5.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "prettier": "^3.2.4"
+  },
+  "peerDependencies": {
+    "@datadog/browser-logs": ">=5.0.0",
+    "@datadog/browser-rum": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@datadog/browser-logs": {
+      "optional": false
+    },
+    "@datadog/browser-rum": {
+      "optional": false
+    }
+  },
+  "sideEffects": false
+}
