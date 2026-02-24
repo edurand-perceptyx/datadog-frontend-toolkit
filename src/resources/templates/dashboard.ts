@@ -3,7 +3,7 @@
  * Creates a comprehensive frontend observability dashboard.
  */
 export function buildDashboardPayload(service: string, env: string, team?: string): Record<string, unknown> {
-  const tags = [`service:${service}`, `env:${env}`, ...(team ? [`team:${team}`] : [])];
+  const tags = team ? [`team:${team}`] : [];
   const tagFilter = tags.map((t) => t).join(',');
 
   return {
@@ -128,7 +128,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                       {
                         data_source: 'rum',
                         name: 'query1',
-                        compute: { aggregation: 'percentile', metric: '@view.largest_contentful_paint', percentile: 75 },
+                        compute: { aggregation: 'pc75', metric: '@view.largest_contentful_paint' },
                         search: { query: `service:${service} env:${env} @type:view` },
                         indexes: ['*'],
                         group_by: [],
@@ -153,7 +153,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                       {
                         data_source: 'rum',
                         name: 'query1',
-                        compute: { aggregation: 'percentile', metric: '@view.cumulative_layout_shift', percentile: 75 },
+                        compute: { aggregation: 'pc75', metric: '@view.cumulative_layout_shift' },
                         search: { query: `service:${service} env:${env} @type:view` },
                         indexes: ['*'],
                         group_by: [],
@@ -178,7 +178,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                       {
                         data_source: 'rum',
                         name: 'query1',
-                        compute: { aggregation: 'percentile', metric: '@view.interaction_to_next_paint', percentile: 75 },
+                        compute: { aggregation: 'pc75', metric: '@view.interaction_to_next_paint' },
                         search: { query: `service:${service} env:${env} @type:view` },
                         indexes: ['*'],
                         group_by: [],
@@ -278,7 +278,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                       {
                         data_source: 'rum',
                         name: 'query1',
-                        compute: { aggregation: 'percentile', metric: '@view.loading_time', percentile: 75 },
+                        compute: { aggregation: 'pc75', metric: '@view.loading_time' },
                         search: { query: `service:${service} env:${env} @type:view` },
                         indexes: ['*'],
                         group_by: [],
@@ -299,10 +299,10 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                       {
                         data_source: 'rum',
                         name: 'query1',
-                        compute: { aggregation: 'percentile', metric: '@view.loading_time', percentile: 75 },
+                        compute: { aggregation: 'pc75', metric: '@view.loading_time' },
                         search: { query: `service:${service} env:${env} @type:view` },
                         indexes: ['*'],
-                        group_by: [{ facet: '@view.name', limit: 10, sort: { aggregation: 'percentile', metric: '@view.loading_time', order: 'desc' } }],
+                        group_by: [{ facet: '@view.name', limit: 10, sort: { aggregation: 'pc75', metric: '@view.loading_time', order: 'desc' } }],
                       },
                     ],
                   },

@@ -30,8 +30,10 @@ One `init()` call to auto-instrument **RUM**, **Logs**, **Error Tracking**, **Pe
 ## Installation
 
 ```bash
-npm install datadog-frontend-toolkit @datadog/browser-rum @datadog/browser-logs
+npm install datadog-frontend-toolkit
 ```
+
+> `@datadog/browser-rum` and `@datadog/browser-logs` are included as dependencies — no need to install them separately.
 
 ---
 
@@ -313,37 +315,40 @@ init({
 
 ## CLI — Resource Provisioning
 
-The CLI provisions Datadog resources (dashboards, monitors, SLOs) for your service automatically.
+The CLI provisions Datadog resources (dashboards, monitors, SLOs) for your service automatically with an **interactive wizard**.
 
 > **Note:** This uses Datadog API/App keys and runs server-side only. Never expose these keys in the browser.
 
 ### Setup Resources
 
 ```bash
-# Using CLI arguments
-npx dd-toolkit setup \
+# Interactive mode — prompts for everything
+npx datadog-frontend-toolkit setup
+
+# With CLI arguments
+npx datadog-frontend-toolkit setup \
   --service my-app \
   --env production \
   --api-key $DD_API_KEY \
   --app-key $DD_APP_KEY \
   --team frontend
 
-# Using environment variables
+# Using environment variables (prompted for the rest)
 export DD_API_KEY=your-api-key
 export DD_APP_KEY=your-app-key
-npx dd-toolkit setup -s my-app -e production
+npx datadog-frontend-toolkit setup -s my-app -e production
 
 # Dry run (preview only)
-npx dd-toolkit setup -s my-app -e production --dry-run
+npx datadog-frontend-toolkit setup -s my-app -e production --dry-run
 
 # Skip specific resources
-npx dd-toolkit setup -s my-app -e production --no-slos
+npx datadog-frontend-toolkit setup -s my-app -e production --no-slos
 ```
 
 ### Check Status
 
 ```bash
-npx dd-toolkit status -s my-app -e production
+npx datadog-frontend-toolkit status -s my-app -e production
 ```
 
 ### What Gets Provisioned
@@ -353,17 +358,39 @@ npx dd-toolkit status -s my-app -e production
 
 **Monitors (6):**
 - High Frontend Error Rate (>50 errors/5min)
-- Poor LCP Performance (p75 > 4s)
-- High CLS Score (p75 > 0.25)
-- JS Error Spike (>100 errors/5min)
+- Poor LCP Performance (avg LCP > 3s)
+- High CLS Score (avg CLS > 0.2)
+- JS Error Spike (>100 JS errors/5min)
 - Error Log Anomaly (>200 error logs/15min)
-- Poor INP Performance (p75 > 500ms)
+- Poor INP Performance (avg INP > 400ms)
 
-**SLOs (4):**
-- Frontend Availability (99.5% target)
-- LCP Performance (75% good threshold)
-- INP Performance (75% good threshold)
-- CLS Performance (75% good threshold)
+**SLOs (1):**
+- Frontend Availability (99.5% target, monitor-based)
+
+### Direct Access Links
+
+After provisioning, the CLI outputs **clickable direct links** to every resource in Datadog:
+
+```
+✅ Dashboards:
+   [Auto] my-app - Frontend Observability
+   https://app.datadoghq.com/dashboard/abc-def-ghi/...
+✅ Monitors:
+   [Auto] my-app (production) - High Frontend Error Rate
+   https://app.datadoghq.com/monitors/123456789
+   ...
+✅ SLOs:
+   [Auto] my-app (production) - Frontend Availability
+   https://app.datadoghq.com/slo?slo_id=abcdef123456
+```
+
+### Markdown Summary
+
+A `datadog-observability-{service}.md` file is generated in the current directory with a full summary of all provisioned resources and their direct links. You can commit this to your repo or share it with your team.
+
+### Idempotent Execution
+
+The CLI is safe to run multiple times. If a resource already exists (matched by name), it will be reused instead of duplicated. Individual resource failures are handled gracefully — one failing resource won't block the rest.
 
 ---
 

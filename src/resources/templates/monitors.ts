@@ -35,13 +35,42 @@ export interface MonitorTemplate {
   options: Record<string, unknown>;
 }
 
+const VALID_ENV_VALUES = ['production', 'staging', 'development', 'testing', 'sandbox', 'sharedservices'];
+
+const ENV_ALIASES: Record<string, string> = {
+  prod: 'production',
+  prd: 'production',
+  stg: 'staging',
+  stage: 'staging',
+  dev: 'development',
+  develop: 'development',
+  int: 'development',
+  integration: 'development',
+  test: 'testing',
+  tst: 'testing',
+  qa: 'testing',
+  uat: 'testing',
+  sbx: 'sandbox',
+  shared: 'sharedservices',
+};
+
+function resolveEnvTag(env: string): string {
+  const lower = env.toLowerCase();
+  if (VALID_ENV_VALUES.includes(lower)) return lower;
+  return ENV_ALIASES[lower] || 'development';
+}
+
 export function buildMonitorTemplates(
   service: string,
   env: string,
   channels: NotificationChannel[] = [],
   team?: string,
 ): MonitorTemplate[] {
-  const tags = [`service:${service}`, `env:${env}`, 'managed:datadog-frontend-toolkit', ...(team ? [`team:${team}`] : [])];
+  const tags = [
+    `env:${resolveEnvTag(env)}`,
+    'source:terraform',
+    ...(team ? [`team:${team}`] : []),
+  ];
   const notify = channels.length > 0 ? `\n\nNotify: ${buildNotificationString(channels)}` : '';
 
   return [
@@ -49,7 +78,7 @@ export function buildMonitorTemplates(
     {
       name: `[Auto] ${service} (${env}) - High Frontend Error Rate`,
       type: 'rum alert',
-      query: `rum("service:${service} env:${env} @type:error").rollup("count").by("@error.source").last("5m") > 50`,
+      query: `rum("service:${service} env:${env} @type:error").rollup("count").last("5m") > 50`,
       message: `## High Frontend Error Rate\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe frontend error rate has exceeded the threshold of 50 errors in 5 minutes.\n\nPlease investigate the error source in the [RUM Error Tracking](https://app.datadoghq.com/rum/error-tracking?query=service%3A${service}%20env%3A${env}).${notify}`,
       tags,
       options: {
@@ -66,11 +95,11 @@ export function buildMonitorTemplates(
     {
       name: `[Auto] ${service} (${env}) - Poor LCP Performance`,
       type: 'rum alert',
-      query: `rum("service:${service} env:${env} @type:view").rollup("percentile", "@view.largest_contentful_paint", 75).last("15m") > 4000`,
-      message: `## Poor LCP Performance\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe 75th percentile Largest Contentful Paint has exceeded 4 seconds (poor threshold).\n\nThis directly impacts user experience and Core Web Vitals scores.${notify}`,
+      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.largest_contentful_paint").last("15m") > 3000`,
+      message: `## Poor LCP Performance\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe average Largest Contentful Paint has exceeded 3 seconds.\n\nThis directly impacts user experience and Core Web Vitals scores.${notify}`,
       tags,
       options: {
-        thresholds: { critical: 4000, warning: 2500 },
+        thresholds: { critical: 3000, warning: 2000 },
         notify_no_data: false,
         renotify_interval: 60,
         include_tags: true,
@@ -81,11 +110,11 @@ export function buildMonitorTemplates(
     {
       name: `[Auto] ${service} (${env}) - High CLS Score`,
       type: 'rum alert',
-      query: `rum("service:${service} env:${env} @type:view").rollup("percentile", "@view.cumulative_layout_shift", 75).last("15m") > 0.25`,
-      message: `## High Cumulative Layout Shift\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe 75th percentile CLS has exceeded 0.25 (poor threshold).\n\nLayout shifts are causing a poor user experience.${notify}`,
+      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.cumulative_layout_shift").last("15m") > 0.2`,
+      message: `## High Cumulative Layout Shift\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe average CLS has exceeded 0.2.\n\nLayout shifts are causing a poor user experience.${notify}`,
       tags,
       options: {
-        thresholds: { critical: 0.25, warning: 0.1 },
+        thresholds: { critical: 0.2, warning: 0.1 },
         notify_no_data: false,
         renotify_interval: 60,
         include_tags: true,
@@ -126,11 +155,11 @@ export function buildMonitorTemplates(
     {
       name: `[Auto] ${service} (${env}) - Poor INP Performance`,
       type: 'rum alert',
-      query: `rum("service:${service} env:${env} @type:view").rollup("percentile", "@view.interaction_to_next_paint", 75).last("15m") > 500`,
-      message: `## Poor Interaction to Next Paint\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe 75th percentile INP has exceeded 500ms (poor threshold).\n\nUser interactions are feeling sluggish.${notify}`,
+      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.interaction_to_next_paint").last("15m") > 400`,
+      message: `## Poor Interaction to Next Paint\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe average INP has exceeded 400ms.\n\nUser interactions are feeling sluggish.${notify}`,
       tags,
       options: {
-        thresholds: { critical: 500, warning: 200 },
+        thresholds: { critical: 400, warning: 200 },
         notify_no_data: false,
         renotify_interval: 60,
         include_tags: true,

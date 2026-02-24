@@ -11,9 +11,10 @@
     "resolveJsonModule": true,
     "declaration": false,
     "sourceMap": true,
-    "outDir": "dist/cli",
+    "outDir": "dist",
+    "rootDir": "src",
     "baseUrl": "."
   },
-  "include": ["src/cli/**/*.ts"],
+  "include": ["src/cli/**/*.ts", "src/resources/**/*.ts", "src/types/**/*.ts", "src/utils/retry.ts"],
   "exclude": ["node_modules", "dist"]
 }

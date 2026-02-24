@@ -1,93 +1,68 @@
 /**
  * SLO templates for Datadog API provisioning.
- * Creates frontend-focused SLOs for availability and performance.
+ * Uses monitor-based SLOs that reference the provisioned RUM monitors.
  */
 
 export interface SloTemplate {
   name: string;
   description: string;
   type: string;
-  query: Record<string, unknown>;
+  monitor_ids: number[];
   thresholds: Array<{ timeframe: string; target: number; warning?: number }>;
   tags: string[];
 }
 
+export interface MonitorSloMapping {
+  /** Pattern to match against the monitor name */
+  monitorPattern: string;
+  sloName: string;
+  sloDescription: string;
+  target: number;
+  warning: number;
+}
+
+// Note: Only metric monitors and synthetics monitors are supported for
+// monitor-based SLOs. RUM alert and log alert monitors are NOT supported.
+// The Frontend Availability SLO uses the error rate count monitor which
+// is the most compatible option.
+const SLO_MAPPINGS: MonitorSloMapping[] = [
+  {
+    monitorPattern: 'High Frontend Error Rate',
+    sloName: 'Frontend Availability',
+    sloDescription: 'Measures frontend availability based on error rate monitor health.',
+    target: 99.5,
+    warning: 99.9,
+  },
+];
+
 export function buildSloTemplates(
   service: string,
   env: string,
+  monitorIds: { id: number; name: string }[],
   team?: string,
 ): SloTemplate[] {
   const tags = [
-    `service:${service}`,
-    `env:${env}`,
-    'managed:datadog-frontend-toolkit',
     ...(team ? [`team:${team}`] : []),
   ];
 
-  return [
-    // Frontend Availability SLO (based on error rate)
-    {
-      name: `[Auto] ${service} (${env}) - Frontend Availability`,
-      description: `Frontend availability for ${service} in ${env}. Measures the percentage of page views without JavaScript errors. Managed by datadog-frontend-toolkit.`,
-      type: 'metric',
-      query: {
-        numerator: `count:rum.view.count{service:${service},env:${env}} - count:rum.error.count{service:${service},env:${env}}`,
-        denominator: `count:rum.view.count{service:${service},env:${env}}`,
-      },
-      thresholds: [
-        { timeframe: '7d', target: 99.5, warning: 99.9 },
-        { timeframe: '30d', target: 99.5, warning: 99.9 },
-        { timeframe: '90d', target: 99.5, warning: 99.9 },
-      ],
-      tags,
-    },
+  const slos: SloTemplate[] = [];
 
-    // LCP Performance SLO
-    {
-      name: `[Auto] ${service} (${env}) - LCP Performance`,
-      description: `LCP performance for ${service} in ${env}. Measures the percentage of page views with LCP under 2.5s (good threshold). Managed by datadog-frontend-toolkit.`,
-      type: 'metric',
-      query: {
-        numerator: `count:rum.largest_contentful_paint.count{service:${service},env:${env},@view.largest_contentful_paint:<2500}`,
-        denominator: `count:rum.largest_contentful_paint.count{service:${service},env:${env}}`,
-      },
-      thresholds: [
-        { timeframe: '7d', target: 75.0, warning: 85.0 },
-        { timeframe: '30d', target: 75.0, warning: 85.0 },
-      ],
-      tags,
-    },
+  for (const mapping of SLO_MAPPINGS) {
+    const monitor = monitorIds.find((m) => m.name.includes(mapping.monitorPattern));
+    if (!monitor) continue;
 
-    // INP Performance SLO
-    {
-      name: `[Auto] ${service} (${env}) - INP Performance`,
-      description: `INP performance for ${service} in ${env}. Measures the percentage of interactions with INP under 200ms (good threshold). Managed by datadog-frontend-toolkit.`,
-      type: 'metric',
-      query: {
-        numerator: `count:rum.interaction_to_next_paint.count{service:${service},env:${env},@view.interaction_to_next_paint:<200}`,
-        denominator: `count:rum.interaction_to_next_paint.count{service:${service},env:${env}}`,
-      },
+    slos.push({
+      name: `[Auto] ${service} (${env}) - ${mapping.sloName}`,
+      description: `${mapping.sloDescription} Managed by datadog-frontend-toolkit.`,
+      type: 'monitor',
+      monitor_ids: [monitor.id],
       thresholds: [
-        { timeframe: '7d', target: 75.0, warning: 85.0 },
-        { timeframe: '30d', target: 75.0, warning: 85.0 },
+        { timeframe: '7d', target: mapping.target, warning: mapping.warning },
+        { timeframe: '30d', target: mapping.target, warning: mapping.warning },
       ],
       tags,
-    },
+    });
+  }
 
-    // CLS Performance SLO
-    {
-      name: `[Auto] ${service} (${env}) - CLS Performance`,
-      description: `CLS performance for ${service} in ${env}. Measures the percentage of page views with CLS under 0.1 (good threshold). Managed by datadog-frontend-toolkit.`,
-      type: 'metric',
-      query: {
-        numerator: `count:rum.cumulative_layout_shift.count{service:${service},env:${env},@view.cumulative_layout_shift:<0.1}`,
-        denominator: `count:rum.cumulative_layout_shift.count{service:${service},env:${env}}`,
-      },
-      thresholds: [
-        { timeframe: '7d', target: 75.0, warning: 85.0 },
-        { timeframe: '30d', target: 75.0, warning: 85.0 },
-      ],
-      tags,
-    },
-  ];
+  return slos;
 }

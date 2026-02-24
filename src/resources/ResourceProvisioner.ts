@@ -59,24 +59,18 @@ export class ResourceProvisioner {
       }
     }
 
-    // Monitors
+    // Monitors (each created independently)
     if (config.monitors !== false) {
-      try {
-        const monitors = await this.provisionMonitors(service, env, config);
-        result.monitors.push(...monitors);
-      } catch (err) {
-        result.errors.push(`Monitors: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      const monitorResults = await this.provisionMonitors(service, env, config);
+      result.monitors.push(...monitorResults.created);
+      result.errors.push(...monitorResults.errors);
     }
 
-    // SLOs
+    // SLOs (monitor-based, each created independently)
     if (config.slos !== false) {
-      try {
-        const slos = await this.provisionSlos(service, env, config.team);
-        result.slos.push(...slos);
-      } catch (err) {
-        result.errors.push(`SLOs: ${err instanceof Error ? err.message : String(err)}`);
-      }
+      const sloResults = await this.provisionSlos(service, env, result.monitors, config.team);
+      result.slos.push(...sloResults.created);
+      result.errors.push(...sloResults.errors);
     }
 
     return result;
@@ -107,7 +101,7 @@ export class ResourceProvisioner {
     service: string,
     env: string,
     config: ProvisioningConfig,
-  ): Promise<{ id: number; name: string }[]> {
+  ): Promise<{ created: { id: number; name: string }[]; errors: string[] }> {
     const templates = buildMonitorTemplates(
       service,
       env,
@@ -115,62 +109,76 @@ export class ResourceProvisioner {
       config.team,
     );
 
-    const results: { id: number; name: string }[] = [];
+    const created: { id: number; name: string }[] = [];
+    const errors: string[] = [];
 
     for (const template of templates) {
-      const existing = await this.findExistingMonitor(template.name);
-      if (existing) {
-        results.push(existing);
-        continue;
+      try {
+        const existing = await this.findExistingMonitor(template.name);
+        if (existing) {
+          created.push(existing);
+          continue;
+        }
+
+        const response = await this.apiRequest('POST', '/v1/monitor', {
+          name: template.name,
+          type: template.type,
+          query: template.query,
+          message: template.message,
+          tags: template.tags,
+          options: template.options,
+        });
+
+        created.push({ id: response.id as number, name: response.name as string });
+      } catch (err) {
+        errors.push(`Monitor "${template.name}": ${err instanceof Error ? err.message : String(err)}`);
       }
-
-      const response = await this.apiRequest('POST', '/v1/monitor', {
-        name: template.name,
-        type: template.type,
-        query: template.query,
-        message: template.message,
-        tags: template.tags,
-        options: template.options,
-      });
-
-      results.push({ id: response.id as number, name: response.name as string });
     }
 
-    return results;
+    return { created, errors };
   }
 
   private async provisionSlos(
     service: string,
     env: string,
+    monitorIds: { id: number; name: string }[],
     team?: string,
-  ): Promise<{ id: string; name: string }[]> {
-    const templates = buildSloTemplates(service, env, team);
-    const results: { id: string; name: string }[] = [];
+  ): Promise<{ created: { id: string; name: string }[]; errors: string[] }> {
+    if (monitorIds.length === 0) {
+      return { created: [], errors: [] };
+    }
+    const templates = buildSloTemplates(service, env, monitorIds, team);
+    const created: { id: string; name: string }[] = [];
+    const errors: string[] = [];
 
     for (const template of templates) {
-      const existing = await this.findExistingSlo(template.name);
-      if (existing) {
-        results.push(existing);
-        continue;
+      try {
+        const existing = await this.findExistingSlo(template.name);
+        if (existing) {
+          created.push(existing);
+          continue;
+        }
+
+        const response = await this.apiRequest('POST', '/v1/slo', {
+          name: template.name,
+          description: template.description,
+          type: template.type,
+          monitor_ids: template.monitor_ids,
+          thresholds: template.thresholds,
+          tags: template.tags,
+        });
+
+        const responseData = response.data as Array<Record<string, unknown>> | undefined;
+        created.push({
+          id: (responseData?.[0]?.id ?? response.id) as string,
+          name: template.name,
+        });
+      } catch (err) {
+        errors.push(`SLO "${template.name}": ${err instanceof Error ? err.message : String(err)}`);
       }
-
-      const response = await this.apiRequest('POST', '/v1/slo', {
-        name: template.name,
-        description: template.description,
-        type: template.type,
-        query: template.query,
-        thresholds: template.thresholds,
-        tags: template.tags,
-      });
-
-      const responseData = response.data as Array<Record<string, unknown>> | undefined;
-      results.push({
-        id: (responseData?.[0]?.id ?? response.id) as string,
-        name: template.name,
-      });
     }
 
-    return results;
+    return { created, errors };
   }
 
   private async findExistingDashboard(

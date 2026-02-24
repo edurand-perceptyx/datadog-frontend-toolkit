@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { ResourceProvisioner } from '../../resources/ResourceProvisioner';
 import type { ProvisioningConfig } from '../../types/config';
 import { prompt, promptSecret, confirm, selectOrCustom } from '../prompt';
@@ -67,7 +69,7 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     console.log('  Resources to provision:');
     dashboards = await confirm('    Create Dashboard?');
     monitors = await confirm('    Create Monitors (6)?');
-    slos = await confirm('    Create SLOs (4)?');
+    slos = await confirm('    Create SLOs (1)?');
   }
 
   const provisioningConfig: ProvisioningConfig = {
@@ -159,12 +161,16 @@ export async function setup(options: Record<string, string | boolean>): Promise<
   const result = await provisioner.provision(service, env, provisioningConfig);
 
   // Report results
+  const baseUrl = `https://app.${site}`;
+
   if (result.dashboards.length > 0) {
     // eslint-disable-next-line no-console
     console.log('\x1b[32m%s\x1b[0m', '✅ Dashboards:');
     for (const d of result.dashboards) {
       // eslint-disable-next-line no-console
-      console.log(`   ${d.title} → ${d.url}`);
+      console.log(`   ${d.title}`);
+      // eslint-disable-next-line no-console
+      console.log(`   \x1b[34m${baseUrl}${d.url}\x1b[0m`);
     }
   }
 
@@ -173,7 +179,9 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     console.log('\x1b[32m%s\x1b[0m', '✅ Monitors:');
     for (const m of result.monitors) {
       // eslint-disable-next-line no-console
-      console.log(`   ${m.name} (id: ${m.id})`);
+      console.log(`   ${m.name}`);
+      // eslint-disable-next-line no-console
+      console.log(`   \x1b[34m${baseUrl}/monitors/${m.id}\x1b[0m`);
     }
   }
 
@@ -182,7 +190,9 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     console.log('\x1b[32m%s\x1b[0m', '✅ SLOs:');
     for (const s of result.slos) {
       // eslint-disable-next-line no-console
-      console.log(`   ${s.name} (id: ${s.id})`);
+      console.log(`   ${s.name}`);
+      // eslint-disable-next-line no-console
+      console.log(`   \x1b[34m${baseUrl}/slo?slo_id=${s.id}\x1b[0m`);
     }
   }
 
@@ -197,6 +207,69 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     }
   }
 
+  // Generate markdown summary
+  const timestamp = new Date().toISOString();
+  const lines: string[] = [
+    `# 🔭 Datadog Observability — ${service}`,
+    '',
+    `> Auto-provisioned by \`datadog-frontend-toolkit\` on ${new Date().toLocaleString()}`,
+    '',
+    '| Field | Value |',
+    '|-------|-------|',
+    `| **Service** | \`${service}\` |`,
+    `| **Environment** | \`${env}\` |`,
+    `| **Site** | \`${site}\` |`,
+    ...(team ? [`| **Team** | \`${team}\` |`] : []),
+    '',
+  ];
+
+  if (result.dashboards.length > 0) {
+    lines.push('## 📊 Dashboards', '');
+    for (const d of result.dashboards) {
+      lines.push(`- **${d.title}**`);
+      lines.push(`  ${baseUrl}${d.url}`);
+    }
+    lines.push('');
+  }
+
+  if (result.monitors.length > 0) {
+    lines.push('## 🚨 Monitors', '');
+    lines.push('| Monitor | Link |');
+    lines.push('|---------|------|');
+    for (const m of result.monitors) {
+      lines.push(`| ${m.name} | [Open in Datadog](${baseUrl}/monitors/${m.id}) |`);
+    }
+    lines.push('');
+  }
+
+  if (result.slos.length > 0) {
+    lines.push('## 🎯 SLOs', '');
+    lines.push('| SLO | Link |');
+    lines.push('|-----|------|');
+    for (const s of result.slos) {
+      lines.push(`| ${s.name} | [Open in Datadog](${baseUrl}/slo?slo_id=${s.id}) |`);
+    }
+    lines.push('');
+  }
+
+  if (result.errors.length > 0) {
+    lines.push('## ⚠️ Errors', '');
+    for (const e of result.errors) {
+      lines.push(`- ${e}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('---', `_Generated at ${timestamp}_`);
+
+  const mdFilename = `datadog-observability-${service}.md`;
+  const mdPath = path.resolve(process.cwd(), mdFilename);
+  fs.writeFileSync(mdPath, lines.join('\n'), 'utf-8');
+
+  // eslint-disable-next-line no-console
+  console.log('');
+  // eslint-disable-next-line no-console
+  console.log(`\x1b[36m📄 Summary saved to \x1b[1m${mdFilename}\x1b[0m`);
   // eslint-disable-next-line no-console
   console.log('');
   // eslint-disable-next-line no-console

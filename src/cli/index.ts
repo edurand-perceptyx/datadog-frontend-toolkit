@@ -10,7 +10,7 @@ const HELP_TEXT = `
   datadog-frontend-toolkit CLI
 
   Usage:
-    dd-toolkit <command> [options]
+    datadog-frontend-toolkit <command> [options]
 
   Commands:
     setup     Provision Datadog resources (dashboards, monitors, SLOs)
@@ -30,9 +30,9 @@ const HELP_TEXT = `
     --help, -h        Show this help message
 
   Examples:
-    dd-toolkit setup -s my-app -e production --api-key <key> --app-key <key>
-    dd-toolkit setup -s my-app -e staging --team frontend --dry-run
-    dd-toolkit status -s my-app -e production
+    datadog-frontend-toolkit setup -s my-app -e production --api-key <key> --app-key <key>
+    datadog-frontend-toolkit setup -s my-app -e staging --team frontend --dry-run
+    datadog-frontend-toolkit status -s my-app -e production
 `;
 
 function parseArgs(args: string[]): Record<string, string | boolean> {
