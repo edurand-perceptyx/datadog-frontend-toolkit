@@ -26,6 +26,8 @@ const HELP_TEXT = `
     --no-dashboards   Skip dashboard provisioning
     --no-monitors     Skip monitor provisioning
     --no-slos         Skip SLO provisioning
+    --force           Update existing resources instead of skipping them
+    --remove          Delete all toolkit-managed resources for the given service/env
     --yes, -y         Skip interactive prompts (create all resources)
     --dry-run         Preview what would be created without making changes
     --help, -h        Show this help message
@@ -34,6 +36,7 @@ const HELP_TEXT = `
     datadog-frontend-toolkit setup -s my-app -e production --api-key <key> --app-key <key>
     datadog-frontend-toolkit setup -s my-app -e staging --team frontend --dry-run
     datadog-frontend-toolkit setup -s my-app -e production --team frontend -y
+    datadog-frontend-toolkit setup -s my-app -e production --remove
     datadog-frontend-toolkit status -s my-app -e production
 `;
 
@@ -53,6 +56,10 @@ function parseArgs(args: string[]): Record<string, string | boolean> {
       parsed['noMonitors'] = true;
     } else if (arg === '--no-slos') {
       parsed['noSlos'] = true;
+    } else if (arg === '--force') {
+      parsed['force'] = true;
+    } else if (arg === '--remove') {
+      parsed['remove'] = true;
     } else if (arg === '--yes' || arg === '-y') {
       parsed['yes'] = true;
     } else if ((arg === '--service' || arg === '-s') && args[i + 1]) {

@@ -41,6 +41,8 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     (options['yes'] ? undefined : (await prompt('Team name (optional)')) || undefined);
 
   const dryRun = !!options['dryRun'];
+  const force = !!options['force'];
+  const remove = !!options['remove'];
 
   // Validate after prompts
   if (!service) {
@@ -54,6 +56,69 @@ export async function setup(options: Record<string, string | boolean>): Promise<
   }
   if (!appKey) {
     throw new Error('Datadog App Key is required');
+  }
+
+  // --remove: tear down all managed resources for this service/env
+  if (remove) {
+    // eslint-disable-next-line no-console
+    console.log('');
+    // eslint-disable-next-line no-console
+    console.log('\x1b[33m%s\x1b[0m', `⚠️  This will DELETE all toolkit-managed resources for ${service} (${env})`);
+    // eslint-disable-next-line no-console
+    console.log('');
+
+    const skipConfirm = !!options['yes'];
+    if (!skipConfirm) {
+      const confirmed = await confirm('Are you sure you want to proceed?');
+      if (!confirmed) {
+        // eslint-disable-next-line no-console
+        console.log('Aborted.');
+        return;
+      }
+    }
+
+    const provisioner = new ResourceProvisioner({
+      apiKey,
+      appKey,
+      site,
+      tags: [`service:${service}`, `env:${env}`],
+    });
+
+    // eslint-disable-next-line no-console
+    console.log('Removing resources...');
+    // eslint-disable-next-line no-console
+    console.log('');
+
+    const result = await provisioner.teardown(service, env);
+
+    if (result.deleted.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log('\x1b[32m%s\x1b[0m', '🗑️  Deleted:');
+      for (const d of result.deleted) {
+        // eslint-disable-next-line no-console
+        console.log(`   ${d}`);
+      }
+    } else {
+      // eslint-disable-next-line no-console
+      console.log('No managed resources found.');
+    }
+
+    if (result.errors.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log('');
+      // eslint-disable-next-line no-console
+      console.log('\x1b[31m%s\x1b[0m', '❌ Errors:');
+      for (const e of result.errors) {
+        // eslint-disable-next-line no-console
+        console.log(`   ${e}`);
+      }
+    }
+
+    // eslint-disable-next-line no-console
+    console.log('');
+    // eslint-disable-next-line no-console
+    console.log('\x1b[36m%s\x1b[0m', '✨ Teardown complete!');
+    return;
   }
 
   // Ask which resources to provision (unless --yes or --no-* flags were passed)
@@ -81,6 +146,7 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     dashboards,
     monitors,
     slos,
+    force,
     tags: [`service:${service}`, `env:${env}`, ...(team ? [`team:${team}`] : [])],
   };
 
@@ -104,6 +170,10 @@ export async function setup(options: Record<string, string | boolean>): Promise<
   console.log(`  Monitors:    ${monitors ? '✓' : '✗'}`);
   // eslint-disable-next-line no-console
   console.log(`  SLOs:        ${slos ? '✓' : '✗'}`);
+  if (force) {
+    // eslint-disable-next-line no-console
+    console.log(`  Force:       \x1b[33m✓ (update existing)\x1b[0m`);
+  }
   if (dryRun) {
     // eslint-disable-next-line no-console
     console.log(`  Mode:        \x1b[33mdry-run\x1b[0m`);
@@ -141,11 +211,15 @@ export async function setup(options: Record<string, string | boolean>): Promise<
       // eslint-disable-next-line no-console
       console.log(`  ✓ SLO: ${service} (${env}) - Frontend Availability`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ SLO: ${service} (${env}) - LCP Performance`);
+      console.log(`  ✓ SLO: ${service} (${env}) - Core Web Vitals (LCP)`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ SLO: ${service} (${env}) - INP Performance`);
+      console.log(`  ✓ Burn Rate Alert: Frontend Availability - High Burn Rate`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ SLO: ${service} (${env}) - CLS Performance`);
+      console.log(`  ✓ Burn Rate Alert: Frontend Availability - Slow Burn Rate`);
+      // eslint-disable-next-line no-console
+      console.log(`  ✓ Burn Rate Alert: Core Web Vitals (LCP) - High Burn Rate`);
+      // eslint-disable-next-line no-console
+      console.log(`  ✓ Burn Rate Alert: Core Web Vitals (LCP) - Slow Burn Rate`);
     }
     // eslint-disable-next-line no-console
     console.log('');

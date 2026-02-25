@@ -63,6 +63,7 @@ export function buildMonitorTemplates(
   const tags = [
     `env:${resolveEnvTag(env)}`,
     'source:terraform',
+    'managed:datadog-frontend-toolkit',
     ...(team ? [`team:${team}`] : []),
   ];
   const notify = channels.length > 0 ? `\n\nNotify: ${buildNotificationString(channels)}` : '';

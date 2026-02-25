@@ -122,6 +122,8 @@ export interface ProvisioningConfig {
   team?: string;
   /** Notification channels for alerts */
   notificationChannels?: NotificationChannel[];
+  /** Force update existing resources instead of skipping them */
+  force?: boolean;
 }
 
 /** Notification channel configuration */

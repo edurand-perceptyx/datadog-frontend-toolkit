@@ -341,6 +341,9 @@ npx datadog-frontend-toolkit setup -s my-app -e production
 # Dry run (preview only)
 npx datadog-frontend-toolkit setup -s my-app -e production --dry-run
 
+# Force update existing resources (keeps same URLs/IDs)
+npx datadog-frontend-toolkit setup -s my-app -e production --force
+
 # Skip specific resources
 npx datadog-frontend-toolkit setup -s my-app -e production --no-slos
 ```
@@ -373,14 +376,14 @@ After provisioning, the CLI outputs **clickable direct links** to every resource
 
 ```
 ✅ Dashboards:
-   [Auto] my-app - Frontend Observability
+   my-app - Frontend Observability
    https://app.datadoghq.com/dashboard/abc-def-ghi/...
 ✅ Monitors:
-   [Auto] my-app (production) - High Frontend Error Rate
+   my-app (production) - High Frontend Error Rate
    https://app.datadoghq.com/monitors/123456789
    ...
 ✅ SLOs:
-   [Auto] my-app (production) - Frontend Availability
+   my-app (production) - Frontend Availability
    https://app.datadoghq.com/slo?slo_id=abcdef123456
 ```
 
@@ -391,6 +394,20 @@ A `datadog-observability-{service}.md` file is generated in the current director
 ### Idempotent Execution
 
 The CLI is safe to run multiple times. If a resource already exists (matched by name), it will be reused instead of duplicated. Individual resource failures are handled gracefully — one failing resource won't block the rest.
+
+### Force Update (`--force`)
+
+Use the `--force` flag to update existing resources in-place instead of skipping them. This preserves the same URLs and IDs, so your bookmarks and shared links remain valid.
+
+```bash
+# Update all resources with latest templates (keeps same URLs)
+npx datadog-frontend-toolkit setup -s my-app -e production --force -y
+```
+
+This is useful when:
+- Dashboard templates have been updated with new widgets or sections
+- Monitor thresholds or queries need to be refreshed
+- SLO tags or configurations have changed
 
 ---
 
