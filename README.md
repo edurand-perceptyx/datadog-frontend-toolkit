@@ -321,6 +321,9 @@ init({
 The CLI provisions Datadog resources (dashboards, monitors, SLOs, and burn rate alerts) for your service automatically with an **interactive wizard**.
 
 > **Note:** This uses Datadog API/App keys and runs server-side only. Never expose these keys in the browser.
+>
+> - **API Key:** [Organization Settings → API Keys](https://app.datadoghq.com/organization-settings/api-keys)
+> - **Application Key:** [Organization Settings → Application Keys](https://app.datadoghq.com/organization-settings/application-keys)
 
 ### Setup Resources
 

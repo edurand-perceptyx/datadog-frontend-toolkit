@@ -89,7 +89,7 @@ export function buildMonitorTemplates(
     {
       name: `${service} (${env}) - Poor LCP Performance`,
       type: 'rum alert',
-      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.largest_contentful_paint").last("15m") > 3000000000`,
+      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.largest_contentful_paint").last("1h") > 3000000000`,
       message: `## Poor LCP Performance\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe average Largest Contentful Paint has exceeded 3 seconds.\n\nThis directly impacts user experience and Core Web Vitals scores.${notify}`,
       tags,
       options: {
@@ -104,7 +104,7 @@ export function buildMonitorTemplates(
     {
       name: `${service} (${env}) - High CLS Score`,
       type: 'rum alert',
-      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.cumulative_layout_shift").last("15m") > 0.2`,
+      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.cumulative_layout_shift").last("1h") > 0.2`,
       message: `## High Cumulative Layout Shift\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe average CLS has exceeded 0.2.\n\nLayout shifts are causing a poor user experience.${notify}`,
       tags,
       options: {
@@ -149,7 +149,7 @@ export function buildMonitorTemplates(
     {
       name: `${service} (${env}) - Poor INP Performance`,
       type: 'rum alert',
-      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.interaction_to_next_paint").last("15m") > 400000000`,
+      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.interaction_to_next_paint").last("1h") > 400000000`,
       message: `## Poor Interaction to Next Paint\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe average INP has exceeded 400ms.\n\nUser interactions are feeling sluggish.${notify}`,
       tags,
       options: {
