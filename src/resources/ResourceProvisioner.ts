@@ -159,14 +159,19 @@ export class ResourceProvisioner {
           continue;
         }
 
-        const response = await this.apiRequest('POST', '/v1/slo', {
+        const sloPayload: Record<string, unknown> = {
           name: template.name,
           description: template.description,
           type: template.type,
-          monitor_ids: template.monitor_ids,
           thresholds: template.thresholds,
           tags: template.tags,
-        });
+        };
+
+        if (template.query) {
+          sloPayload.query = template.query;
+        }
+
+        const response = await this.apiRequest('POST', '/v1/slo', sloPayload);
 
         const responseData = response.data as Array<Record<string, unknown>> | undefined;
         created.push({
@@ -192,7 +197,7 @@ export class ResourceProvisioner {
       const existing = dashboards.find(
         (d: Record<string, unknown>) =>
           typeof d.title === 'string' &&
-          d.title.includes(`[Auto] ${service}`) &&
+          d.title.includes(`${service} - Frontend Observability`) &&
           d.title.includes(env),
       );
 

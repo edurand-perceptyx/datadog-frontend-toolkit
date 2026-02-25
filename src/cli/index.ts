@@ -26,12 +26,14 @@ const HELP_TEXT = `
     --no-dashboards   Skip dashboard provisioning
     --no-monitors     Skip monitor provisioning
     --no-slos         Skip SLO provisioning
+    --yes, -y         Skip interactive prompts (create all resources)
     --dry-run         Preview what would be created without making changes
     --help, -h        Show this help message
 
   Examples:
     datadog-frontend-toolkit setup -s my-app -e production --api-key <key> --app-key <key>
     datadog-frontend-toolkit setup -s my-app -e staging --team frontend --dry-run
+    datadog-frontend-toolkit setup -s my-app -e production --team frontend -y
     datadog-frontend-toolkit status -s my-app -e production
 `;
 
@@ -51,6 +53,8 @@ function parseArgs(args: string[]): Record<string, string | boolean> {
       parsed['noMonitors'] = true;
     } else if (arg === '--no-slos') {
       parsed['noSlos'] = true;
+    } else if (arg === '--yes' || arg === '-y') {
+      parsed['yes'] = true;
     } else if ((arg === '--service' || arg === '-s') && args[i + 1]) {
       parsed['service'] = args[++i];
     } else if ((arg === '--env' || arg === '-e') && args[i + 1]) {

@@ -7,7 +7,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
   const tagFilter = tags.map((t) => t).join(',');
 
   return {
-    title: `[Auto] ${service} - Frontend Observability`,
+    title: `${service} - Frontend Observability`,
     description: `Auto-provisioned dashboard for ${service} (${env}) by datadog-frontend-toolkit`,
     layout_type: 'ordered',
     tags,
@@ -192,6 +192,31 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                 ],
               },
             },
+            {
+              definition: {
+                type: 'timeseries',
+                title: 'First Contentful Paint (FCP)',
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@view.first_contentful_paint' },
+                        search: { query: `service:${service} env:${env} @type:view` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                    ],
+                  },
+                ],
+                markers: [
+                  { value: 'y = 1800', display_type: 'warning dashed', label: 'Good threshold' },
+                  { value: 'y = 3000', display_type: 'error dashed', label: 'Poor threshold' },
+                ],
+              },
+            },
           ],
         },
       },
@@ -260,6 +285,79 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           ],
         },
       },
+      // API Endpoint Errors Group
+      {
+        definition: {
+          type: 'group',
+          title: 'API Endpoint Errors',
+          layout_type: 'ordered',
+          widgets: [
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Top Failing Endpoints (by count)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:resource @resource.type:(xhr OR fetch) @resource.status_code:>=400` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@resource.url', limit: 25, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Errors by Status Code',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:resource @resource.type:(xhr OR fetch) @resource.status_code:>=400` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@resource.status_code', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'timeseries',
+                title: 'API Errors Over Time',
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:resource @resource.type:(xhr OR fetch) @resource.status_code:>=400` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@resource.url', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
       // Performance Group
       {
         definition: {
@@ -303,6 +401,344 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         search: { query: `service:${service} env:${env} @type:view` },
                         indexes: ['*'],
                         group_by: [{ facet: '@view.name', limit: 10, sort: { aggregation: 'pc75', metric: '@view.loading_time', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      // Geo Performance Group
+      {
+        definition: {
+          type: 'group',
+          title: 'Performance by Country',
+          layout_type: 'ordered',
+          widgets: [
+            {
+              definition: {
+                type: 'geomap',
+                title: 'Page Load Time by Country',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@view.loading_time' },
+                        search: { query: `service:${service} env:${env} @type:view` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@geo.country_iso_code', limit: 50, sort: { aggregation: 'pc75', metric: '@view.loading_time', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+                style: { palette: 'hostmap_blues', palette_flip: false },
+                view: { focus: 'WORLD' },
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Errors by Country',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@geo.country', limit: 15, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: 'LCP by Country (p75)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@view.largest_contentful_paint' },
+                        search: { query: `service:${service} env:${env} @type:view` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@geo.country', limit: 15, sort: { aggregation: 'pc75', metric: '@view.largest_contentful_paint', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      // Browser & Device Group
+      {
+        definition: {
+          type: 'group',
+          title: 'Browser & Device Breakdown',
+          layout_type: 'ordered',
+          widgets: [
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Errors by Browser',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@browser.name', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Errors by OS',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@os.name', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Errors by Device Type',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@device.type', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'timeseries',
+                title: 'LCP by Browser (p75)',
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@view.largest_contentful_paint' },
+                        search: { query: `service:${service} env:${env} @type:view` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@browser.name', limit: 5, sort: { aggregation: 'pc75', metric: '@view.largest_contentful_paint', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      // Frustrated Sessions Group
+      {
+        definition: {
+          type: 'group',
+          title: 'User Frustration',
+          layout_type: 'ordered',
+          widgets: [
+            {
+              definition: {
+                type: 'query_value',
+                title: 'Frustrated Sessions',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'cardinality', metric: '@session.id' },
+                        search: { query: `service:${service} env:${env} @type:error` },
+                        indexes: ['*'],
+                      },
+                    ],
+                  },
+                ],
+                autoscale: true,
+                precision: 0,
+              },
+            },
+            {
+              definition: {
+                type: 'query_value',
+                title: 'Rage Clicks',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:action @action.type:click @action.frustration.type:rage_click` },
+                        indexes: ['*'],
+                      },
+                    ],
+                  },
+                ],
+                autoscale: true,
+                precision: 0,
+              },
+            },
+            {
+              definition: {
+                type: 'timeseries',
+                title: 'Rage Clicks Over Time',
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:action @action.type:click @action.frustration.type:rage_click` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Top Rage Click Targets',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} env:${env} @type:action @action.type:click @action.frustration.type:rage_click` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@action.name', limit: 15, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      // Resource Loading Group
+      {
+        definition: {
+          type: 'group',
+          title: 'Resource Loading',
+          layout_type: 'ordered',
+          widgets: [
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Slowest Resources (p75 duration)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@resource.duration' },
+                        search: { query: `service:${service} env:${env} @type:resource` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@resource.url', limit: 15, sort: { aggregation: 'pc75', metric: '@resource.duration', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Largest Resources (by size)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@resource.size' },
+                        search: { query: `service:${service} env:${env} @type:resource` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@resource.url', limit: 15, sort: { aggregation: 'pc75', metric: '@resource.size', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Slowest Resources by Type',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@resource.duration' },
+                        search: { query: `service:${service} env:${env} @type:resource` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@resource.type', limit: 10, sort: { aggregation: 'pc75', metric: '@resource.duration', order: 'desc' } }],
                       },
                     ],
                   },

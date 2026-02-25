@@ -34,12 +34,11 @@ export async function setup(options: Record<string, string | boolean>): Promise<
   const site =
     (options['site'] as string) ||
     process.env.DD_SITE ||
-    (await prompt('Datadog site', 'datadoghq.com'));
+    (options['yes'] ? 'datadoghq.com' : await prompt('Datadog site', 'datadoghq.com'));
 
   const team =
     (options['team'] as string) ||
-    (await prompt('Team name (optional)')) ||
-    undefined;
+    (options['yes'] ? undefined : (await prompt('Team name (optional)')) || undefined);
 
   const dryRun = !!options['dryRun'];
 
@@ -57,12 +56,14 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     throw new Error('Datadog App Key is required');
   }
 
-  // Ask which resources to provision (unless flags were passed)
+  // Ask which resources to provision (unless --yes or --no-* flags were passed)
   let dashboards = !options['noDashboards'];
   let monitors = !options['noMonitors'];
   let slos = !options['noSlos'];
 
-  if (!options['noDashboards'] && !options['noMonitors'] && !options['noSlos']) {
+  const skipPrompts = !!options['yes'];
+
+  if (!skipPrompts && !options['noDashboards'] && !options['noMonitors'] && !options['noSlos']) {
     // eslint-disable-next-line no-console
     console.log('');
     // eslint-disable-next-line no-console
@@ -120,31 +121,31 @@ export async function setup(options: Record<string, string | boolean>): Promise<
 
     if (provisioningConfig.dashboards) {
       // eslint-disable-next-line no-console
-      console.log(`  ✓ Dashboard: [Auto] ${service} - Frontend Observability`);
+      console.log(`  ✓ Dashboard: ${service} - Frontend Observability`);
     }
     if (provisioningConfig.monitors) {
       // eslint-disable-next-line no-console
-      console.log(`  ✓ Monitor: [Auto] ${service} (${env}) - High Frontend Error Rate`);
+      console.log(`  ✓ Monitor: ${service} (${env}) - High Frontend Error Rate`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ Monitor: [Auto] ${service} (${env}) - Poor LCP Performance`);
+      console.log(`  ✓ Monitor: ${service} (${env}) - Poor LCP Performance`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ Monitor: [Auto] ${service} (${env}) - High CLS Score`);
+      console.log(`  ✓ Monitor: ${service} (${env}) - High CLS Score`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ Monitor: [Auto] ${service} (${env}) - JS Error Spike`);
+      console.log(`  ✓ Monitor: ${service} (${env}) - JS Error Spike`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ Monitor: [Auto] ${service} (${env}) - Error Log Anomaly`);
+      console.log(`  ✓ Monitor: ${service} (${env}) - Error Log Anomaly`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ Monitor: [Auto] ${service} (${env}) - Poor INP Performance`);
+      console.log(`  ✓ Monitor: ${service} (${env}) - Poor INP Performance`);
     }
     if (provisioningConfig.slos) {
       // eslint-disable-next-line no-console
-      console.log(`  ✓ SLO: [Auto] ${service} (${env}) - Frontend Availability`);
+      console.log(`  ✓ SLO: ${service} (${env}) - Frontend Availability`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ SLO: [Auto] ${service} (${env}) - LCP Performance`);
+      console.log(`  ✓ SLO: ${service} (${env}) - LCP Performance`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ SLO: [Auto] ${service} (${env}) - INP Performance`);
+      console.log(`  ✓ SLO: ${service} (${env}) - INP Performance`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ SLO: [Auto] ${service} (${env}) - CLS Performance`);
+      console.log(`  ✓ SLO: ${service} (${env}) - CLS Performance`);
     }
     // eslint-disable-next-line no-console
     console.log('');
@@ -225,6 +226,7 @@ export async function setup(options: Record<string, string | boolean>): Promise<
 
   if (result.dashboards.length > 0) {
     lines.push('## 📊 Dashboards', '');
+    lines.push('> A **Dashboard** is a visual overview that aggregates key metrics, logs, and traces into a single view for real-time monitoring of your service health.', '');
     for (const d of result.dashboards) {
       lines.push(`- **${d.title}**`);
       lines.push(`  ${baseUrl}${d.url}`);
@@ -232,24 +234,37 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     lines.push('');
   }
 
+  // Monitor descriptions keyed by pattern found in monitor name
+  const monitorDescriptions: Record<string, string> = {
+    'High Frontend Error Rate': 'Tracks the total number of RUM errors in a 5-minute window. Fires when errors exceed the threshold, indicating a potential regression or outage.',
+    'Poor LCP Performance': '**Largest Contentful Paint (LCP)** measures how long it takes for the largest visible element to render. Values above 3 seconds indicate a poor loading experience (Core Web Vital).',
+    'High CLS Score': '**Cumulative Layout Shift (CLS)** measures unexpected layout movements during page load. Values above 0.2 indicate visual instability that frustrates users (Core Web Vital).',
+    'JS Error Spike': 'Detects sudden spikes in JavaScript source errors (>100 in 5 min). Often signals a bad deployment, broken third-party script, or infrastructure issue.',
+    'Error Log Anomaly': 'Monitors backend/frontend error logs volume. A sudden increase (>200 in 15 min) may indicate an upstream service failure or configuration problem.',
+    'Poor INP Performance': '**Interaction to Next Paint (INP)** measures responsiveness — how long it takes the page to react to user input. Values above 400 ms feel sluggish (Core Web Vital).',
+  };
+
   if (result.monitors.length > 0) {
     lines.push('## 🚨 Monitors', '');
-    lines.push('| Monitor | Link |');
-    lines.push('|---------|------|');
+    lines.push('> A **Monitor** is an automated alert rule that continuously evaluates a metric or query and triggers notifications when thresholds are breached.', '');
     for (const m of result.monitors) {
-      lines.push(`| ${m.name} | [Open in Datadog](${baseUrl}/monitors/${m.id}) |`);
+      const desc = Object.entries(monitorDescriptions).find(([pattern]) => m.name.includes(pattern));
+      lines.push(`### ${m.name}`);
+      lines.push(`🔗 [Open in Datadog](${baseUrl}/monitors/${m.id})`, '');
+      if (desc) {
+        lines.push(`${desc[1]}`, '');
+      }
     }
-    lines.push('');
   }
 
   if (result.slos.length > 0) {
     lines.push('## 🎯 SLOs', '');
-    lines.push('| SLO | Link |');
-    lines.push('|-----|------|');
+    lines.push('> A **Service Level Objective (SLO)** defines a target percentage of "good" events over a time window. It helps teams track reliability commitments and manage error budgets.', '');
     for (const s of result.slos) {
-      lines.push(`| ${s.name} | [Open in Datadog](${baseUrl}/slo?slo_id=${s.id}) |`);
+      lines.push(`### ${s.name}`);
+      lines.push(`🔗 [Open in Datadog](${baseUrl}/slo?slo_id=${s.id})`, '');
+      lines.push('Measures frontend availability as the ratio of error-free page views to total page views. Target: **99.5%** over 7d and 30d windows.', '');
     }
-    lines.push('');
   }
 
   if (result.errors.length > 0) {

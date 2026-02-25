@@ -35,8 +35,6 @@ export interface MonitorTemplate {
   options: Record<string, unknown>;
 }
 
-const VALID_ENV_VALUES = ['production', 'staging', 'development', 'testing', 'sandbox', 'sharedservices'];
-
 const ENV_ALIASES: Record<string, string> = {
   prod: 'production',
   prd: 'production',
@@ -44,9 +42,6 @@ const ENV_ALIASES: Record<string, string> = {
   stage: 'staging',
   dev: 'development',
   develop: 'development',
-  int: 'development',
-  integration: 'development',
-  test: 'testing',
   tst: 'testing',
   qa: 'testing',
   uat: 'testing',
@@ -56,8 +51,7 @@ const ENV_ALIASES: Record<string, string> = {
 
 function resolveEnvTag(env: string): string {
   const lower = env.toLowerCase();
-  if (VALID_ENV_VALUES.includes(lower)) return lower;
-  return ENV_ALIASES[lower] || 'development';
+  return ENV_ALIASES[lower] || lower;
 }
 
 export function buildMonitorTemplates(
@@ -76,7 +70,7 @@ export function buildMonitorTemplates(
   return [
     // High Error Rate Monitor
     {
-      name: `[Auto] ${service} (${env}) - High Frontend Error Rate`,
+      name: `${service} (${env}) - High Frontend Error Rate`,
       type: 'rum alert',
       query: `rum("service:${service} env:${env} @type:error").rollup("count").last("5m") > 50`,
       message: `## High Frontend Error Rate\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe frontend error rate has exceeded the threshold of 50 errors in 5 minutes.\n\nPlease investigate the error source in the [RUM Error Tracking](https://app.datadoghq.com/rum/error-tracking?query=service%3A${service}%20env%3A${env}).${notify}`,
@@ -87,19 +81,18 @@ export function buildMonitorTemplates(
         renotify_interval: 30,
         escalation_message: `Error rate still elevated for ${service} (${env})`,
         include_tags: true,
-        new_group_delay: 60,
       },
     },
 
     // Poor LCP Monitor
     {
-      name: `[Auto] ${service} (${env}) - Poor LCP Performance`,
+      name: `${service} (${env}) - Poor LCP Performance`,
       type: 'rum alert',
-      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.largest_contentful_paint").last("15m") > 3000`,
+      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.largest_contentful_paint").last("15m") > 3000000000`,
       message: `## Poor LCP Performance\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe average Largest Contentful Paint has exceeded 3 seconds.\n\nThis directly impacts user experience and Core Web Vitals scores.${notify}`,
       tags,
       options: {
-        thresholds: { critical: 3000, warning: 2000 },
+        thresholds: { critical: 3000000000, warning: 2000000000 },
         notify_no_data: false,
         renotify_interval: 60,
         include_tags: true,
@@ -108,7 +101,7 @@ export function buildMonitorTemplates(
 
     // High CLS Monitor
     {
-      name: `[Auto] ${service} (${env}) - High CLS Score`,
+      name: `${service} (${env}) - High CLS Score`,
       type: 'rum alert',
       query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.cumulative_layout_shift").last("15m") > 0.2`,
       message: `## High Cumulative Layout Shift\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe average CLS has exceeded 0.2.\n\nLayout shifts are causing a poor user experience.${notify}`,
@@ -123,7 +116,7 @@ export function buildMonitorTemplates(
 
     // JavaScript Error Spike
     {
-      name: `[Auto] ${service} (${env}) - JS Error Spike`,
+      name: `${service} (${env}) - JS Error Spike`,
       type: 'rum alert',
       query: `rum("service:${service} env:${env} @type:error @error.source:source").rollup("count").last("5m") > 100`,
       message: `## JavaScript Error Spike\n\n**Service:** ${service}\n**Environment:** ${env}\n\nA spike in JavaScript errors has been detected (>100 in 5 minutes).\n\nThis may indicate a deployment issue or third-party script failure.${notify}`,
@@ -138,7 +131,7 @@ export function buildMonitorTemplates(
 
     // Log Error Anomaly
     {
-      name: `[Auto] ${service} (${env}) - Error Log Anomaly`,
+      name: `${service} (${env}) - Error Log Anomaly`,
       type: 'log alert',
       query: `logs("service:${service} env:${env} status:error").index("*").rollup("count").last("15m") > 200`,
       message: `## Error Log Anomaly\n\n**Service:** ${service}\n**Environment:** ${env}\n\nAn unusual number of error logs have been detected.\n\nCheck [Log Explorer](https://app.datadoghq.com/logs?query=service%3A${service}%20env%3A${env}%20status%3Aerror) for details.${notify}`,
@@ -153,13 +146,13 @@ export function buildMonitorTemplates(
 
     // Poor INP Monitor
     {
-      name: `[Auto] ${service} (${env}) - Poor INP Performance`,
+      name: `${service} (${env}) - Poor INP Performance`,
       type: 'rum alert',
-      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.interaction_to_next_paint").last("15m") > 400`,
+      query: `rum("service:${service} env:${env} @type:view").rollup("avg", "@view.interaction_to_next_paint").last("15m") > 400000000`,
       message: `## Poor Interaction to Next Paint\n\n**Service:** ${service}\n**Environment:** ${env}\n\nThe average INP has exceeded 400ms.\n\nUser interactions are feeling sluggish.${notify}`,
       tags,
       options: {
-        thresholds: { critical: 400, warning: 200 },
+        thresholds: { critical: 400000000, warning: 200000000 },
         notify_no_data: false,
         renotify_interval: 60,
         include_tags: true,
