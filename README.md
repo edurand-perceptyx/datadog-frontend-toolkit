@@ -2,7 +2,7 @@
 
 > Enterprise-grade, framework-agnostic frontend observability toolkit for Datadog.
 
-One `init()` call to auto-instrument **RUM**, **Logs**, **Error Tracking**, **Performance Monitoring**, and auto-provision **Dashboards**, **Monitors** & **SLOs** in Datadog.
+One `init()` call to auto-instrument **RUM**, **Logs**, **Error Tracking**, **Performance Monitoring**, and auto-provision **Dashboards**, **Monitors**, **SLOs** & **Burn Rate Alerts** in Datadog.
 
 ---
 
@@ -16,7 +16,10 @@ One `init()` call to auto-instrument **RUM**, **Logs**, **Error Tracking**, **Pe
 - **Web Vitals tracking** — LCP, CLS, FID, INP, FCP, TTFB with threshold alerts
 - **Network interception** — monitors XHR/Fetch for failures and slow requests
 - **PII sanitization** — auto-redacts emails, credit cards, passwords from logs
-- **Resource provisioning CLI** — auto-creates Dashboards, Monitors, and SLOs
+- **Resource provisioning CLI** — auto-creates Dashboards, Monitors, SLOs, and Burn Rate Alerts
+- **Environment-aware SLO targets** — 99.5% for production, 95% for non-production
+- **Google SRE burn rate alerts** — multi-window, multi-burn-rate alerting with auto-clamped thresholds
+- **Resource teardown** — `--remove` flag deletes all managed resources for a service/environment
 - **Plugin system** — extend with custom integrations
 - **Lifecycle hooks** — `beforeInit`, `afterInit`, `beforeLog`, `beforeError`
 - **Child loggers** — scoped context for module-specific logging
@@ -315,7 +318,7 @@ init({
 
 ## CLI — Resource Provisioning
 
-The CLI provisions Datadog resources (dashboards, monitors, SLOs) for your service automatically with an **interactive wizard**.
+The CLI provisions Datadog resources (dashboards, monitors, SLOs, and burn rate alerts) for your service automatically with an **interactive wizard**.
 
 > **Note:** This uses Datadog API/App keys and runs server-side only. Never expose these keys in the browser.
 
@@ -348,6 +351,20 @@ npx datadog-frontend-toolkit setup -s my-app -e production --force
 npx datadog-frontend-toolkit setup -s my-app -e production --no-slos
 ```
 
+### Remove Resources
+
+Delete all toolkit-managed resources for a given service/environment:
+
+```bash
+# Interactive confirmation before deleting
+npx datadog-frontend-toolkit setup -s my-app -e production --remove
+
+# Skip confirmation
+npx datadog-frontend-toolkit setup -s my-app -e production --remove -y
+```
+
+This finds and deletes all monitors, SLOs, burn rate alerts, and dashboards tagged with `managed:datadog-frontend-toolkit` for the specified service and environment.
+
 ### Check Status
 
 ```bash
@@ -356,8 +373,8 @@ npx datadog-frontend-toolkit status -s my-app -e production
 
 ### What Gets Provisioned
 
-**Dashboard:**
-- Frontend Observability overview with RUM metrics, Web Vitals, error tracking, and performance panels
+**Dashboard (1):**
+- Frontend Observability overview with RUM metrics, Web Vitals, error tracking, API endpoint errors, and performance panels
 
 **Monitors (6):**
 - High Frontend Error Rate (>50 errors/5min)
@@ -367,8 +384,23 @@ npx datadog-frontend-toolkit status -s my-app -e production
 - Error Log Anomaly (>200 error logs/15min)
 - Poor INP Performance (avg INP > 400ms)
 
-**SLOs (1):**
-- Frontend Availability (99.5% target, monitor-based)
+**SLOs (2) — environment-aware targets:**
+
+| SLO | Type | Metric | Production | Non-production |
+|-----|------|--------|------------|----------------|
+| Frontend Availability | metric | `view.error_free / view` | 99.5% | 95% |
+| Core Web Vitals (LCP) | time-slice | `p75 LCP < 2.5s` | 75% | 75% |
+
+**Burn Rate Alerts (4) — Google SRE multi-window, multi-burn-rate:**
+
+For each SLO, two burn rate alert monitors are created:
+
+| Alert | Burn Rate | Window | Action |
+|-------|-----------|--------|--------|
+| High Burn Rate | ~14× (budget exhausted in ~2 days) | 1h long / 5m short | 🔥 Investigate immediately |
+| Slow Burn Rate | ~6× (budget exhausted in ~5 days) | 6h long / 30m short | ⚠️ Create ticket, investigate within 24h |
+
+> Burn rate thresholds are automatically clamped based on each SLO's target to stay within Datadog's allowed range (`max = 1/(1-target)`).
 
 ### Direct Access Links
 
@@ -381,15 +413,19 @@ After provisioning, the CLI outputs **clickable direct links** to every resource
 ✅ Monitors:
    my-app (production) - High Frontend Error Rate
    https://app.datadoghq.com/monitors/123456789
+   my-app (production) - Frontend Availability - High Burn Rate
+   https://app.datadoghq.com/monitors/123456790
    ...
 ✅ SLOs:
    my-app (production) - Frontend Availability
    https://app.datadoghq.com/slo?slo_id=abcdef123456
+   my-app (production) - Core Web Vitals (LCP)
+   https://app.datadoghq.com/slo?slo_id=abcdef789012
 ```
 
 ### Markdown Summary
 
-A `datadog-observability-{service}.md` file is generated in the current directory with a full summary of all provisioned resources and their direct links. You can commit this to your repo or share it with your team.
+A `datadog-observability-{service}.md` file is generated in the current directory with a full summary of all provisioned resources, descriptions, and direct links. You can commit this to your repo or share it with your team.
 
 ### Idempotent Execution
 
@@ -407,7 +443,7 @@ npx datadog-frontend-toolkit setup -s my-app -e production --force -y
 This is useful when:
 - Dashboard templates have been updated with new widgets or sections
 - Monitor thresholds or queries need to be refreshed
-- SLO tags or configurations have changed
+- SLO targets or burn rate configurations have changed
 
 ---
 

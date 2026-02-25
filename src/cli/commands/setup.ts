@@ -316,6 +316,8 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     'JS Error Spike': 'Detects sudden spikes in JavaScript source errors (>100 in 5 min). Often signals a bad deployment, broken third-party script, or infrastructure issue.',
     'Error Log Anomaly': 'Monitors backend/frontend error logs volume. A sudden increase (>200 in 15 min) may indicate an upstream service failure or configuration problem.',
     'Poor INP Performance': '**Interaction to Next Paint (INP)** measures responsiveness — how long it takes the page to react to user input. Values above 400 ms feel sluggish (Core Web Vital).',
+    'High Burn Rate': '🔥 **High Burn Rate Alert** — The error budget is being consumed ~14× faster than sustainable. At this rate the entire 30-day budget will be exhausted in ~2 days. Requires immediate investigation.',
+    'Slow Burn Rate': '⚠️ **Slow Burn Rate Alert** — The error budget is being consumed ~6× faster than sustainable. At this rate the entire 30-day budget will be exhausted in ~5 days. Create a ticket and investigate within 24 hours.',
   };
 
   if (result.monitors.length > 0) {

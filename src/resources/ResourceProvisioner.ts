@@ -71,7 +71,7 @@ export class ResourceProvisioner {
     // SLOs (metric-based and time-slice)
     if (config.slos !== false) {
       const sloResults = await this.provisionSlos(service, env, result.monitors, config.team, force);
-      result.slos.push(...sloResults.created);
+      result.slos.push(...sloResults.created.map(({ id, name }) => ({ id, name })));
       result.errors.push(...sloResults.errors);
 
       // Burn-rate alerts for each SLO (Google SRE multi-window approach)
@@ -176,9 +176,9 @@ export class ResourceProvisioner {
     monitorIds: { id: number; name: string }[],
     team?: string,
     force?: boolean,
-  ): Promise<{ created: { id: string; name: string }[]; errors: string[] }> {
+  ): Promise<{ created: { id: string; name: string; target: number }[]; errors: string[] }> {
     const templates = buildSloTemplates(service, env, monitorIds, team);
-    const created: { id: string; name: string }[] = [];
+    const created: { id: string; name: string; target: number }[] = [];
     const errors: string[] = [];
 
     for (const template of templates) {
@@ -200,14 +200,16 @@ export class ResourceProvisioner {
           sloPayload.sli_specification = template.sli_specification;
         }
 
+        const maxTarget = Math.max(...template.thresholds.map(t => t.target));
+
         if (existing && force) {
           await this.apiRequest('PUT', `/v1/slo/${existing.id}`, sloPayload);
-          created.push(existing);
+          created.push({ ...existing, target: maxTarget });
           continue;
         }
 
         if (existing) {
-          created.push(existing);
+          created.push({ ...existing, target: maxTarget });
           continue;
         }
 
@@ -217,6 +219,7 @@ export class ResourceProvisioner {
         created.push({
           id: (responseData?.[0]?.id ?? response.id) as string,
           name: template.name,
+          target: maxTarget,
         });
       } catch (err) {
         errors.push(`SLO "${template.name}": ${err instanceof Error ? err.message : String(err)}`);
@@ -233,7 +236,7 @@ export class ResourceProvisioner {
    *   - Slow burn (6×):    6h long / 30m short window → ticket
    */
   private async provisionBurnRateAlerts(
-    slos: { id: string; name: string }[],
+    slos: { id: string; name: string; target: number }[],
     service: string,
     env: string,
     channels: import('../types/config').NotificationChannel[] = [],
@@ -256,7 +259,14 @@ export class ResourceProvisioner {
       : '';
 
     for (const slo of slos) {
+      // Max burn rate = 1 / (1 - target/100). Thresholds must stay below this.
+      const maxBurnRate = 1 / (1 - slo.target / 100);
+
       for (const alert of BURN_RATE_ALERTS) {
+        // Clamp thresholds to 90% of max to stay within Datadog's allowed range
+        const clampedCritical = Math.min(alert.critical, Math.floor(maxBurnRate * 0.9 * 10) / 10);
+        const clampedWarning = Math.min(alert.warning, Math.floor(clampedCritical * 0.5 * 10) / 10);
+
         const monitorName = `${slo.name} - ${alert.nameSuffix}`;
 
         try {
@@ -265,11 +275,11 @@ export class ResourceProvisioner {
           const monitorPayload = {
             name: monitorName,
             type: 'slo alert',
-            query: `burn_rate("${slo.id}").over("7d").long_window("${alert.long_window}").short_window("${alert.short_window}") > ${alert.critical}`,
+            query: `burn_rate("${slo.id}").over("7d").long_window("${alert.long_window}").short_window("${alert.short_window}") > ${clampedCritical}`,
             message: `${alert.message}\n\n**SLO:** ${slo.name}\n**Service:** ${service}\n**Environment:** ${env}${notify}`,
             tags,
             options: {
-              thresholds: { critical: alert.critical, warning: alert.warning },
+              thresholds: { critical: clampedCritical, warning: clampedWarning },
               notify_no_data: false,
               include_tags: true,
             },
