@@ -282,29 +282,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                 ],
               },
             },
-            // Row 4: Recent error logs — what happened last?
-            {
-              definition: {
-                type: 'toplist',
-                title: '📋 Recent Error Logs (by message)',
-                requests: [
-                  {
-                    response_format: 'scalar',
-                    queries: [
-                      {
-                        data_source: 'logs',
-                        name: 'query1',
-                        compute: { aggregation: 'count' },
-                        search: { query: `service:${service} @env:${env} status:(error OR critical)` },
-                        indexes: ['*'],
-                        group_by: [{ facet: 'message', limit: 20, sort: { aggregation: 'count', order: 'desc' } }],
-                      },
-                    ],
-                    formulas: [{ formula: 'query1' }],
-                  },
-                ],
-              },
-            },
+            // Row 4: Error logs trend from Logs product
             {
               definition: {
                 type: 'timeseries',
@@ -322,6 +300,178 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [],
                       },
                     ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+
+      // ═══════════════════════════════════════════════════════════════
+      // SECTION 1.5: Deployment Health — version tracking & regression detection
+      // ═══════════════════════════════════════════════════════════════
+      {
+        definition: {
+          type: 'group',
+          title: '🚀 Deployment Health — Version Tracking',
+          layout_type: 'ordered',
+          widgets: [
+            // Error count by version
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Errors by Version',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: 'version', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
+            // Sessions by version
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Sessions by Version',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'cardinality', metric: '@session.id' },
+                        search: { query: `service:${service} $env` },
+                        indexes: ['*'],
+                        group_by: [{ facet: 'version', limit: 10, sort: { aggregation: 'cardinality', metric: '@session.id', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
+            // Sessions by version over time
+            {
+              definition: {
+                type: 'timeseries',
+                title: 'Sessions by Version Over Time',
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'cardinality', metric: '@session.id' },
+                        search: { query: `service:${service} $env` },
+                        indexes: ['*'],
+                        group_by: [{ facet: 'version', limit: 5, sort: { aggregation: 'cardinality', metric: '@session.id', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            // Error rate by version over time
+            {
+              definition: {
+                type: 'timeseries',
+                title: 'Errors by Version Over Time',
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: 'version', limit: 5, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            // LCP by version
+            {
+              definition: {
+                type: 'toplist',
+                title: 'LCP (p75) by Version',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@view.largest_contentful_paint' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [{ facet: 'version', limit: 10, sort: { aggregation: 'pc75', metric: '@view.largest_contentful_paint', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
+            // Loading time by version
+            {
+              definition: {
+                type: 'toplist',
+                title: 'Loading Time (p75) by Version',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@view.loading_time' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [{ facet: 'version', limit: 10, sort: { aggregation: 'pc75', metric: '@view.loading_time', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
+            // CLS by version
+            {
+              definition: {
+                type: 'toplist',
+                title: 'CLS (p75) by Version',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@view.cumulative_layout_shift' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [{ facet: 'version', limit: 10, sort: { aggregation: 'pc75', metric: '@view.cumulative_layout_shift', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
