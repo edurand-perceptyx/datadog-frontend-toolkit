@@ -205,7 +205,7 @@ export async function setup(options: Record<string, string | boolean>): Promise<
       // eslint-disable-next-line no-console
       console.log(`  ✓ Monitor: ${service} (${env}) - Error Log Anomaly`);
       // eslint-disable-next-line no-console
-      console.log(`  ✓ Monitor: ${service} (${env}) - Poor INP Performance`);
+      console.log(`  ✓ Monitor: ${service} (${env}) - Slow Page Load`);
     }
     if (provisioningConfig.slos) {
       // eslint-disable-next-line no-console
@@ -315,7 +315,7 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     'High CLS Score': '**Cumulative Layout Shift (CLS)** measures unexpected layout movements during page load. Values above 0.2 indicate visual instability that frustrates users (Core Web Vital).',
     'JS Error Spike': 'Detects sudden spikes in JavaScript source errors (>100 in 5 min). Often signals a bad deployment, broken third-party script, or infrastructure issue.',
     'Error Log Anomaly': 'Monitors backend/frontend error logs volume. A sudden increase (>200 in 15 min) may indicate an upstream service failure or configuration problem.',
-    'Poor INP Performance': '**Interaction to Next Paint (INP)** measures responsiveness — how long it takes the page to react to user input. Values above 400 ms feel sluggish (Core Web Vital).',
+    'Slow Page Load': '**Page Load Time** measures how long a view takes to be considered loaded. Values above 5 seconds indicate slow rendering or backend latency affecting user experience.',
     'High Burn Rate': '🔥 **High Burn Rate Alert** — The error budget is being consumed ~14× faster than sustainable. At this rate the entire 30-day budget will be exhausted in ~2 days. Requires immediate investigation.',
     'Slow Burn Rate': '⚠️ **Slow Burn Rate Alert** — The error budget is being consumed ~6× faster than sustainable. At this rate the entire 30-day budget will be exhausted in ~5 days. Create a ticket and investigate within 24 hours.',
   };
