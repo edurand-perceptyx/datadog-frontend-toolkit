@@ -102,6 +102,9 @@ export interface UserContext {
   [key: string]: unknown;
 }
 
+/** Traffic load size tiers for monitor threshold calibration */
+export type LoadSize = 'low' | 'medium' | 'high' | 'very-high';
+
 /** Resource provisioning configuration (for CLI/server-side) */
 export interface ProvisioningConfig {
   /** Datadog API key (DD_API_KEY) - NEVER use in browser */
@@ -124,6 +127,8 @@ export interface ProvisioningConfig {
   notificationChannels?: NotificationChannel[];
   /** Force update existing resources instead of skipping them */
   force?: boolean;
+  /** Traffic load size — calibrates monitor thresholds. Default: 'low' */
+  loadSize?: LoadSize;
 }
 
 /** Notification channel configuration */

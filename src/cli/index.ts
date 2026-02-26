@@ -26,6 +26,13 @@ const HELP_TEXT = `
     --no-dashboards   Skip dashboard provisioning
     --no-monitors     Skip monitor provisioning
     --no-slos         Skip SLO provisioning
+    --load-size       Traffic load profile: low, medium, high, very-high (default: interactive)
+    --notify          Notification target (repeatable). Auto-detects type from format:
+                        email:   user@company.com
+                        slack:   alerts-channel@company.slack.com  or  @slack-alerts-channel
+                        pagerduty: @pagerduty-my-service
+                        webhook: @webhook-my-hook
+                        opsgenie: @opsgenie-my-team
     --force           Update existing resources instead of skipping them
     --remove          Delete all toolkit-managed resources for the given service/env
     --yes, -y         Skip interactive prompts (create all resources)
@@ -35,7 +42,9 @@ const HELP_TEXT = `
   Examples:
     datadog-frontend-toolkit setup -s my-app -e production --api-key <key> --app-key <key>
     datadog-frontend-toolkit setup -s my-app -e staging --team frontend --dry-run
-    datadog-frontend-toolkit setup -s my-app -e production --team frontend -y
+    datadog-frontend-toolkit setup -s my-app -e production --team frontend --load-size medium -y
+    datadog-frontend-toolkit setup -s my-app -e production --notify alerts@company.slack.com
+    datadog-frontend-toolkit setup -s my-app -e production --notify @slack-fe-alerts --notify ops@company.com
     datadog-frontend-toolkit setup -s my-app -e production --remove
     datadog-frontend-toolkit status -s my-app -e production
 `;
@@ -74,6 +83,11 @@ function parseArgs(args: string[]): Record<string, string | boolean> {
       parsed['site'] = args[++i];
     } else if (arg === '--team' && args[i + 1]) {
       parsed['team'] = args[++i];
+    } else if (arg === '--load-size' && args[i + 1]) {
+      parsed['loadSize'] = args[++i];
+    } else if (arg === '--notify' && args[i + 1]) {
+      const val = args[++i];
+      parsed['notify'] = parsed['notify'] ? `${parsed['notify']},${val}` : val;
     }
   }
 

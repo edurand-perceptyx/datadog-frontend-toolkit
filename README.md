@@ -19,6 +19,7 @@ One `init()` call to auto-instrument **RUM**, **Logs**, **Error Tracking**, **Pe
 - **Resource provisioning CLI** — auto-creates Dashboards, Monitors, SLOs, and Burn Rate Alerts
 - **Environment-aware SLO targets** — 99.5% for production, 95% for non-production
 - **Google SRE burn rate alerts** — multi-window, multi-burn-rate alerting with auto-clamped thresholds
+- **Traffic-aware thresholds** — `--load-size` calibrates monitor thresholds to your app's traffic volume
 - **Resource teardown** — `--remove` flag deletes all managed resources for a service/environment
 - **Plugin system** — extend with custom integrations
 - **Lifecycle hooks** — `beforeInit`, `afterInit`, `beforeLog`, `beforeError`
@@ -337,7 +338,8 @@ npx datadog-frontend-toolkit setup \
   --env production \
   --api-key $DD_API_KEY \
   --app-key $DD_APP_KEY \
-  --team frontend
+  --team frontend \
+  --load-size medium
 
 # Using environment variables (prompted for the rest)
 export DD_API_KEY=your-api-key
@@ -352,6 +354,19 @@ npx datadog-frontend-toolkit setup -s my-app -e production --force
 
 # Skip specific resources
 npx datadog-frontend-toolkit setup -s my-app -e production --no-slos
+
+# Specify traffic load (skips interactive prompt)
+npx datadog-frontend-toolkit setup -s my-app -e production --load-size high -y
+
+# With Slack notification channel
+npx datadog-frontend-toolkit setup -s my-app -e production \
+  --notify alerts-channel@company.slack.com
+
+# Multiple notification targets (Slack + email + PagerDuty)
+npx datadog-frontend-toolkit setup -s my-app -e production \
+  --notify alerts@company.slack.com \
+  --notify oncall@company.com \
+  --notify @pagerduty-frontend-service
 ```
 
 ### Remove Resources
@@ -379,13 +394,75 @@ npx datadog-frontend-toolkit status -s my-app -e production
 **Dashboard (1):**
 - Frontend Observability overview with RUM metrics, Web Vitals, error tracking, API endpoint errors, and performance panels
 
-**Monitors (6):**
-- High Frontend Error Rate (>50 errors/5min)
+**Monitors (6):** — thresholds adapt to your `--load-size` profile
+- High Frontend Error Rate
 - Poor LCP Performance (avg LCP > 3s)
 - High CLS Score (avg CLS > 0.2)
-- JS Error Spike (>100 JS errors/5min)
-- Error Log Anomaly (>200 error logs/15min)
-- Poor INP Performance (avg INP > 400ms)
+- JS Error Spike
+- Error Log Anomaly
+- Slow Page Load (avg loading time > 5s)
+
+### Traffic Load Profiles (`--load-size`)
+
+Monitor thresholds and evaluation windows are automatically calibrated based on the selected traffic profile:
+
+| Profile | Users/min | Error Rate | JS Spike | Log Anomaly | Web Vitals Window |
+|---------|-----------|------------|----------|-------------|-------------------|
+| `low` | 1–50 | >10 in 15m | >25 in 15m | >50 in 15m | 4h |
+| `medium` | 50–500 | >50 in 10m | >100 in 10m | >200 in 15m | 1h |
+| `high` | 500–5,000 | >200 in 5m | >500 in 5m | >500 in 10m | 30m |
+| `very-high` | 5,000+ | >500 in 5m | >1,000 in 5m | >2,000 in 10m | 15m |
+
+If `--load-size` is not provided via flag, the CLI prompts interactively:
+
+```
+Expected traffic load for this service:
+  › 1) Low  (1–50 users/min)  — internal tools, admin panels, staging envs
+    2) Medium  (50–500 users/min)  — B2B SaaS, department-level apps
+    3) High  (500–5,000 users/min)  — company-wide apps, B2C products
+    4) Very High  (5,000+ users/min)  — high-traffic consumer apps
+```
+
+When using `-y` (skip prompts) without `--load-size`, defaults to `low`.
+
+### Notification Channels (`--notify`)
+
+Configure where monitors and burn rate alerts send notifications when triggered. The `--notify` flag auto-detects the channel type from the target format:
+
+| Format | Detected Type | Example |
+|--------|---------------|---------|
+| `*@*.slack.com` | Slack (email integration) | `alerts@company.slack.com` |
+| `@slack-*` | Slack (native) | `@slack-frontend-alerts` |
+| `@pagerduty-*` | PagerDuty | `@pagerduty-frontend-oncall` |
+| `@opsgenie-*` | OpsGenie | `@opsgenie-frontend-team` |
+| `@webhook-*` | Webhook | `@webhook-deploy-tracker` |
+| `user@domain.com` | Email | `oncall@company.com` |
+
+The flag is **repeatable** — pass multiple `--notify` flags for multiple targets:
+
+```bash
+npx datadog-frontend-toolkit setup -s my-app -e production \
+  --notify alerts@company.slack.com \
+  --notify @pagerduty-frontend-oncall
+```
+
+If `--notify` is not provided, the CLI prompts interactively:
+
+```
+📣 Notification Channels
+   Monitors and burn rate alerts will notify these targets when triggered.
+   Supported formats:
+     • Slack email:    alerts-channel@company.slack.com
+     • Slack native:   @slack-alerts-channel
+     • Email:          user@company.com
+     • PagerDuty:      @pagerduty-my-service
+
+Notification target (leave empty to skip): alerts@company.slack.com
+   ✓ Added: 🔔 Slack → alerts@company.slack.com
+Add another notification target? (y/N):
+```
+
+When using `-y` (skip prompts) without `--notify`, no notification channels are configured.
 
 **SLOs (2) — environment-aware targets:**
 

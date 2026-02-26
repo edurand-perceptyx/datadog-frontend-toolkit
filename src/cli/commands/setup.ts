@@ -1,8 +1,46 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { ResourceProvisioner } from '../../resources/ResourceProvisioner';
-import type { ProvisioningConfig } from '../../types/config';
-import { prompt, promptSecret, confirm, selectOrCustom } from '../prompt';
+import type { ProvisioningConfig, LoadSize, NotificationChannel } from '../../types/config';
+import { LOAD_SIZE_LABELS } from '../../resources/templates/monitors';
+import { prompt, promptSecret, confirm, selectOrCustom, select } from '../prompt';
+
+/**
+ * Auto-detect notification channel type from a target string.
+ *  - *@*.slack.com          → slack (Slack email integration)
+ *  - @slack-*               → slack (Datadog native)
+ *  - @pagerduty-*           → pagerduty
+ *  - @opsgenie-*            → opsgenie
+ *  - @webhook-*             → webhook
+ *  - anything else with @   → email
+ */
+function parseNotifyTarget(raw: string): NotificationChannel {
+  const t = raw.trim();
+  if (t.match(/@.+\.slack\.com$/i)) {
+    return { type: 'slack', target: t };
+  }
+  if (t.startsWith('@slack-')) {
+    return { type: 'slack', target: t.replace(/^@slack-/, '') };
+  }
+  if (t.startsWith('@pagerduty-')) {
+    return { type: 'pagerduty', target: t.replace(/^@pagerduty-/, '') };
+  }
+  if (t.startsWith('@opsgenie-')) {
+    return { type: 'opsgenie', target: t.replace(/^@opsgenie-/, '') };
+  }
+  if (t.startsWith('@webhook-')) {
+    return { type: 'webhook', target: t.replace(/^@webhook-/, '') };
+  }
+  return { type: 'email', target: t };
+}
+
+const NOTIFY_TYPE_LABELS: Record<string, string> = {
+  slack: '🔔 Slack',
+  email: '📧 Email',
+  pagerduty: '🚨 PagerDuty',
+  opsgenie: '🔔 OpsGenie',
+  webhook: '🔗 Webhook',
+};
 
 export async function setup(options: Record<string, string | boolean>): Promise<void> {
   // eslint-disable-next-line no-console
@@ -39,6 +77,57 @@ export async function setup(options: Record<string, string | boolean>): Promise<
   const team =
     (options['team'] as string) ||
     (options['yes'] ? undefined : (await prompt('Team name (optional)')) || undefined);
+
+  const VALID_LOAD_SIZES: LoadSize[] = ['low', 'medium', 'high', 'very-high'];
+  let loadSize: LoadSize;
+  const loadSizeArg = options['loadSize'] as string | undefined;
+  if (loadSizeArg && VALID_LOAD_SIZES.includes(loadSizeArg as LoadSize)) {
+    loadSize = loadSizeArg as LoadSize;
+  } else if (options['yes']) {
+    loadSize = 'low';
+  } else {
+    const loadSizeOptions = VALID_LOAD_SIZES.map((k) => LOAD_SIZE_LABELS[k]);
+    const selected = await select('Expected traffic load for this service:', loadSizeOptions, 0);
+    loadSize = VALID_LOAD_SIZES[loadSizeOptions.indexOf(selected)] ?? 'low';
+  }
+
+  // Notification channels: --notify flags → interactive prompt
+  const notificationChannels: NotificationChannel[] = [];
+  const notifyArg = options['notify'] as string | undefined;
+  if (notifyArg) {
+    for (const raw of notifyArg.split(',')) {
+      if (raw.trim()) notificationChannels.push(parseNotifyTarget(raw));
+    }
+  }
+  if (!notifyArg && !options['yes']) {
+    // eslint-disable-next-line no-console
+    console.log('\x1b[36m%s\x1b[0m', '📣 Notification Channels');
+    // eslint-disable-next-line no-console
+    console.log('   Monitors and burn rate alerts will notify these targets when triggered.');
+    // eslint-disable-next-line no-console
+    console.log('   Supported formats:');
+    // eslint-disable-next-line no-console
+    console.log('     • Slack email:    alerts-channel@company.slack.com');
+    // eslint-disable-next-line no-console
+    console.log('     • Slack native:   @slack-alerts-channel');
+    // eslint-disable-next-line no-console
+    console.log('     • Email:          user@company.com');
+    // eslint-disable-next-line no-console
+    console.log('     • PagerDuty:      @pagerduty-my-service');
+    // eslint-disable-next-line no-console
+    console.log('');
+
+    let addMore = true;
+    while (addMore) {
+      const target = await prompt('Notification target (leave empty to skip)');
+      if (!target) break;
+      const channel = parseNotifyTarget(target);
+      notificationChannels.push(channel);
+      // eslint-disable-next-line no-console
+      console.log(`   ✓ Added: ${NOTIFY_TYPE_LABELS[channel.type] || channel.type} → ${channel.target}`);
+      addMore = await confirm('Add another notification target?', false);
+    }
+  }
 
   const dryRun = !!options['dryRun'];
   const force = !!options['force'];
@@ -147,6 +236,8 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     monitors,
     slos,
     force,
+    loadSize,
+    notificationChannels,
     tags: [`service:${service}`, `env:${env}`, ...(team ? [`team:${team}`] : [])],
   };
 
@@ -170,6 +261,15 @@ export async function setup(options: Record<string, string | boolean>): Promise<
   console.log(`  Monitors:    ${monitors ? '✓' : '✗'}`);
   // eslint-disable-next-line no-console
   console.log(`  SLOs:        ${slos ? '✓' : '✗'}`);
+  // eslint-disable-next-line no-console
+  console.log(`  Load Size:   ${loadSize}`);
+  if (notificationChannels.length > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`  Notify:      ${notificationChannels.map((ch) => `${NOTIFY_TYPE_LABELS[ch.type] || ch.type} → ${ch.target}`).join(', ')}`);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(`  Notify:      (none)`);
+  }
   if (force) {
     // eslint-disable-next-line no-console
     console.log(`  Force:       \x1b[33m✓ (update existing)\x1b[0m`);
@@ -294,7 +394,11 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     `| **Service** | \`${service}\` |`,
     `| **Environment** | \`${env}\` |`,
     `| **Site** | \`${site}\` |`,
+    `| **Load Profile** | \`${loadSize}\` |`,
     ...(team ? [`| **Team** | \`${team}\` |`] : []),
+    ...(notificationChannels.length > 0
+      ? [`| **Notifications** | ${notificationChannels.map((ch) => `\`${ch.type}: ${ch.target}\``).join(', ')} |`]
+      : []),
     '',
   ];
 
@@ -309,12 +413,15 @@ export async function setup(options: Record<string, string | boolean>): Promise<
   }
 
   // Monitor descriptions keyed by pattern found in monitor name
+  // Thresholds shown here are dynamically generated based on selected load size
+  const { THRESHOLDS_BY_LOAD } = await import('../../resources/templates/monitors');
+  const th = THRESHOLDS_BY_LOAD[loadSize];
   const monitorDescriptions: Record<string, string> = {
-    'High Frontend Error Rate': 'Tracks the total number of RUM errors in a 5-minute window. Fires when errors exceed the threshold, indicating a potential regression or outage.',
+    'High Frontend Error Rate': `Tracks the total number of RUM errors in a ${th.errorRate.window} window. Fires when errors exceed ${th.errorRate.critical} (load profile: **${loadSize}**), indicating a potential regression or outage.`,
     'Poor LCP Performance': '**Largest Contentful Paint (LCP)** measures how long it takes for the largest visible element to render. Values above 3 seconds indicate a poor loading experience (Core Web Vital).',
     'High CLS Score': '**Cumulative Layout Shift (CLS)** measures unexpected layout movements during page load. Values above 0.2 indicate visual instability that frustrates users (Core Web Vital).',
-    'JS Error Spike': 'Detects sudden spikes in JavaScript source errors (>100 in 5 min). Often signals a bad deployment, broken third-party script, or infrastructure issue.',
-    'Error Log Anomaly': 'Monitors backend/frontend error logs volume. A sudden increase (>200 in 15 min) may indicate an upstream service failure or configuration problem.',
+    'JS Error Spike': `Detects sudden spikes in JavaScript source errors (>${th.jsSpike.critical} in ${th.jsSpike.window}, load profile: **${loadSize}**). Often signals a bad deployment, broken third-party script, or infrastructure issue.`,
+    'Error Log Anomaly': `Monitors backend/frontend error logs volume. A sudden increase (>${th.logAnomaly.critical} in ${th.logAnomaly.window}, load profile: **${loadSize}**) may indicate an upstream service failure or configuration problem.`,
     'Slow Page Load': '**Page Load Time** measures how long a view takes to be considered loaded. Values above 5 seconds indicate slow rendering or backend latency affecting user experience.',
     'High Burn Rate': '🔥 **High Burn Rate Alert** — The error budget is being consumed ~14× faster than sustainable. At this rate the entire 30-day budget will be exhausted in ~2 days. Requires immediate investigation.',
     'Slow Burn Rate': '⚠️ **Slow Burn Rate Alert** — The error budget is being consumed ~6× faster than sustainable. At this rate the entire 30-day budget will be exhausted in ~5 days. Create a ticket and investigate within 24 hours.',

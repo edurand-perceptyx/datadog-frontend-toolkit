@@ -131,6 +131,7 @@ export class ResourceProvisioner {
       env,
       config.notificationChannels,
       config.team,
+      config.loadSize,
     );
 
     const created: { id: number; name: string }[] = [];
@@ -255,7 +256,13 @@ export class ResourceProvisioner {
     ];
 
     const notify = channels && channels.length > 0
-      ? `\n\nNotify: ${channels.map((ch) => `@${ch.type === 'slack' ? 'slack-' : ''}${ch.target}`).join(' ')}`
+      ? `\n\nNotify: ${channels.map((ch) => {
+          if (ch.target.startsWith('@')) return ch.target;
+          if (ch.type === 'pagerduty') return `@pagerduty-${ch.target}`;
+          if (ch.type === 'opsgenie') return `@opsgenie-${ch.target}`;
+          if (ch.type === 'webhook') return `@webhook-${ch.target}`;
+          return `@${ch.target}`;
+        }).join(' ')}`
       : '';
 
     for (const slo of slos) {
@@ -276,7 +283,7 @@ export class ResourceProvisioner {
             name: monitorName,
             type: 'slo alert',
             query: `burn_rate("${slo.id}").over("7d").long_window("${alert.long_window}").short_window("${alert.short_window}") > ${clampedCritical}`,
-            message: `${alert.message}\n\n**SLO:** ${slo.name}\n**Service:** ${service}\n**Environment:** ${env}${notify}`,
+            message: `${alert.message}\n\n**Monitor:** {{monitor_name}}\n**SLO:** ${slo.name}\n**Service:** ${service}\n**Environment:** ${env}\n**Triggered Value:** {{value}} (threshold: {{threshold}})\n\n### 📋 Recommended Actions\n1. **Check error budget status** — open [SLO Details](https://app.datadoghq.com/slo?query=${encodeURIComponent(`service:${service}`)}) and check how much error budget remains. If near 0%, stop non-critical deployments.\n2. **Identify the contributing errors** — open [RUM Explorer](https://app.datadoghq.com/rum/explorer?query=${encodeURIComponent(`service:${service}`)}%20${encodeURIComponent(`env:${env}`)}%20%40type%3Aerror) and check what errors are burning the budget.\n3. **Correlate with recent changes** — open [Event Explorer](https://app.datadoghq.com/event/explorer?query=${encodeURIComponent(`service:${service}`)}) and look for deploys, config changes, or incidents in the last few hours.\n4. **Check backend health** — open [Log Explorer](https://app.datadoghq.com/logs?query=${encodeURIComponent(`service:${service}`)}%20${encodeURIComponent(`env:${env}`)}%20status%3Aerror) for backend errors that may be impacting the SLO.\n5. **Assess severity** — fast burn = immediate incident, slow burn = schedule investigation. Determine if this needs a hotfix or can wait for next sprint.\n6. **Mitigate** — if the burn rate is high, consider rolling back the last deployment or enabling a feature flag to disable the problematic feature.\n7. **Communicate** — if customers are impacted, notify stakeholders and update the incident channel.\n\n### 🔍 Investigate\n- [SLO Details](https://app.datadoghq.com/slo?query=${encodeURIComponent(`service:${service}`)}) — current SLO status and error budget\n- [RUM Explorer](https://app.datadoghq.com/rum/explorer?query=${encodeURIComponent(`service:${service}`)}%20${encodeURIComponent(`env:${env}`)}) — frontend events timeline\n- [Log Explorer (errors)](https://app.datadoghq.com/logs?query=${encodeURIComponent(`service:${service}`)}%20${encodeURIComponent(`env:${env}`)}%20status%3Aerror) — correlated error logs\n- [Event Explorer](https://app.datadoghq.com/event/explorer?query=${encodeURIComponent(`service:${service}`)}) — recent deploys, config changes, and incidents\n- [Bits AI SRE](https://app.datadoghq.com/bits-ai/monitors/supported) — AI-powered root cause analysis${notify}`,
             tags,
             options: {
               thresholds: { critical: clampedCritical, warning: clampedWarning },
