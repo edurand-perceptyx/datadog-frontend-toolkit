@@ -1,6 +1,6 @@
 {
   "name": "datadog-frontend-toolkit",
-  "version": "1.0.57",
+  "version": "1.0.61",
   "description": "Enterprise-grade, framework-agnostic frontend observability toolkit for Datadog. Auto-instruments RUM, Logs, Error Tracking, Performance Monitoring, and provisions Dashboards, Monitors & SLOs.",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",

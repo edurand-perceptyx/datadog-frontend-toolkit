@@ -23,7 +23,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
       {
         definition: {
           type: 'note',
-          content: `# ${service} Frontend Observability\n**Auto-provisioned** by datadog-frontend-toolkit — use the \`$env\` dropdown above to filter by environment`,
+          content: `# ${service} Frontend Observability\n**Auto-provisioned** by datadog-frontend-toolkit — use the \`$env\` dropdown above to filter by environment.\n\n**Top section:** Key signals to detect production issues at a glance. **Bottom section:** Full observability detail for deep investigation.`,
           background_color: 'blue',
           font_size: '16',
           text_align: 'left',
@@ -32,11 +32,324 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           tick_pos: '50%',
         },
       },
-      // RUM Overview Group
+
+      // ═══════════════════════════════════════════════════════════════
+      // SECTION 1: Production Health — concise, actionable, error-focused
+      // ═══════════════════════════════════════════════════════════════
       {
         definition: {
           type: 'group',
-          title: 'Real User Monitoring',
+          title: '🚨 Production Health — Key Error Signals',
+          layout_type: 'ordered',
+          widgets: [
+            // Row 1: Critical numbers at a glance
+            {
+              definition: {
+                type: 'query_value',
+                title: '⚠️ Error Rate',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'errors',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                      },
+                      {
+                        data_source: 'rum',
+                        name: 'total',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                      },
+                    ],
+                    formulas: [{ formula: '(errors / total) * 100' }],
+                    conditional_formats: [
+                      { comparator: '>', value: 5, palette: 'white_on_red' },
+                      { comparator: '>', value: 2, palette: 'white_on_yellow' },
+                      { comparator: '<=', value: 2, palette: 'white_on_green' },
+                    ],
+                  },
+                ],
+                autoscale: true,
+                precision: 2,
+                custom_unit: '%',
+              },
+            },
+            {
+              definition: {
+                type: 'query_value',
+                title: '🐛 JS Errors',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                      },
+                    ],
+                    conditional_formats: [
+                      { comparator: '>', value: 100, palette: 'white_on_red' },
+                      { comparator: '>', value: 20, palette: 'white_on_yellow' },
+                      { comparator: '<=', value: 20, palette: 'white_on_green' },
+                    ],
+                  },
+                ],
+                autoscale: true,
+                precision: 0,
+              },
+            },
+            {
+              definition: {
+                type: 'query_value',
+                title: '🔌 Failed API Calls (4xx/5xx)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:resource @resource.type:(xhr OR fetch) @resource.status_code:>=400` },
+                        indexes: ['*'],
+                      },
+                    ],
+                    conditional_formats: [
+                      { comparator: '>', value: 50, palette: 'white_on_red' },
+                      { comparator: '>', value: 10, palette: 'white_on_yellow' },
+                      { comparator: '<=', value: 10, palette: 'white_on_green' },
+                    ],
+                  },
+                ],
+                autoscale: true,
+                precision: 0,
+              },
+            },
+            {
+              definition: {
+                type: 'query_value',
+                title: '😡 Rage Clicks',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:action @action.type:click @action.frustration.type:rage_click` },
+                        indexes: ['*'],
+                      },
+                    ],
+                    conditional_formats: [
+                      { comparator: '>', value: 20, palette: 'white_on_red' },
+                      { comparator: '>', value: 5, palette: 'white_on_yellow' },
+                      { comparator: '<=', value: 5, palette: 'white_on_green' },
+                    ],
+                  },
+                ],
+                autoscale: true,
+                precision: 0,
+              },
+            },
+            {
+              definition: {
+                type: 'query_value',
+                title: '⏱️ LCP (p75)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'pc75', metric: '@view.largest_contentful_paint' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                      },
+                    ],
+                    conditional_formats: [
+                      { comparator: '>', value: 4000, palette: 'white_on_red' },
+                      { comparator: '>', value: 2500, palette: 'white_on_yellow' },
+                      { comparator: '<=', value: 2500, palette: 'white_on_green' },
+                    ],
+                  },
+                ],
+                autoscale: true,
+                precision: 0,
+                custom_unit: 'ms',
+              },
+            },
+            {
+              definition: {
+                type: 'query_value',
+                title: '👥 Affected Sessions',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'cardinality', metric: '@session.id' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                      },
+                    ],
+                    conditional_formats: [
+                      { comparator: '>', value: 50, palette: 'white_on_red' },
+                      { comparator: '>', value: 10, palette: 'white_on_yellow' },
+                      { comparator: '<=', value: 10, palette: 'white_on_green' },
+                    ],
+                  },
+                ],
+                autoscale: true,
+                precision: 0,
+              },
+            },
+            // Row 2: Error timeline — are errors spiking?
+            {
+              definition: {
+                type: 'timeseries',
+                title: '📈 Error Trend (is it spiking?)',
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@error.source', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            // Row 3: What exactly is breaking?
+            {
+              definition: {
+                type: 'toplist',
+                title: '🔴 Top Errors — What is breaking?',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@error.message', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: '🔌 Failing API Endpoints',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:resource @resource.type:(xhr OR fetch) @resource.status_code:>=400` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@resource.url', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
+            // Row 4: Recent error logs — what happened last?
+            {
+              definition: {
+                type: 'toplist',
+                title: '📋 Recent Error Logs (by message)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'logs',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} @env:${env} status:(error OR critical)` },
+                        indexes: ['*'],
+                        group_by: [{ facet: 'message', limit: 20, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'timeseries',
+                title: '📋 Error Logs Over Time',
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'logs',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} @env:${env} status:(error OR critical)` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+
+      // ═══════════════════════════════════════════════════════════════
+      // SECTION 2: Detailed Observability — deep-dive investigation
+      // ═══════════════════════════════════════════════════════════════
+      {
+        definition: {
+          type: 'note',
+          content: '---\n## 📊 Detailed Observability\nThe sections below provide full diagnostic data for deep investigation: traffic volume, Web Vitals trends, API error breakdown, geo performance, browser/device analysis, user frustration patterns, and resource loading.',
+          background_color: 'gray',
+          font_size: '14',
+          text_align: 'left',
+          show_tick: false,
+          tick_edge: 'left',
+          tick_pos: '50%',
+        },
+      },
+      // Traffic Overview Group
+      {
+        definition: {
+          type: 'group',
+          title: 'Traffic Overview',
           layout_type: 'ordered',
           widgets: [
             {
@@ -64,7 +377,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
             {
               definition: {
                 type: 'query_value',
-                title: 'Page Views (1h)',
+                title: 'Page Views',
                 requests: [
                   {
                     response_format: 'scalar',
@@ -81,37 +394,6 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                 ],
                 autoscale: true,
                 precision: 0,
-              },
-            },
-            {
-              definition: {
-                type: 'query_value',
-                title: 'Error Rate',
-                requests: [
-                  {
-                    response_format: 'scalar',
-                    queries: [
-                      {
-                        data_source: 'rum',
-                        name: 'errors',
-                        compute: { aggregation: 'count' },
-                        search: { query: `service:${service} $env @type:error` },
-                        indexes: ['*'],
-                      },
-                      {
-                        data_source: 'rum',
-                        name: 'total',
-                        compute: { aggregation: 'count' },
-                        search: { query: `service:${service} $env @type:view` },
-                        indexes: ['*'],
-                      },
-                    ],
-                    formulas: [{ formula: '(errors / total) * 100' }],
-                  },
-                ],
-                autoscale: true,
-                precision: 2,
-                custom_unit: '%',
               },
             },
           ],
@@ -227,71 +509,6 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           ],
         },
       },
-      // Errors Group
-      {
-        definition: {
-          type: 'group',
-          title: 'Errors & Logs',
-          layout_type: 'ordered',
-          widgets: [
-            {
-              definition: {
-                type: 'timeseries',
-                title: 'Errors Over Time',
-                requests: [
-                  {
-                    response_format: 'timeseries',
-                    queries: [
-                      {
-                        data_source: 'rum',
-                        name: 'query1',
-                        compute: { aggregation: 'count' },
-                        search: { query: `service:${service} $env @type:error` },
-                        indexes: ['*'],
-                        group_by: [{ facet: '@error.source', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
-                      },
-                    ],
-                  },
-                ],
-              },
-            },
-            {
-              definition: {
-                type: 'toplist',
-                title: 'Top Errors',
-                requests: [
-                  {
-                    response_format: 'scalar',
-                    queries: [
-                      {
-                        data_source: 'rum',
-                        name: 'query1',
-                        compute: { aggregation: 'count' },
-                        search: { query: `service:${service} $env @type:error` },
-                        indexes: ['*'],
-                        group_by: [{ facet: '@error.message', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
-                      },
-                    ],
-                  },
-                ],
-              },
-            },
-            {
-              definition: {
-                type: 'log_stream',
-                title: 'Recent Error Logs',
-                query: `service:${service} $env status:(error OR critical)`,
-                columns: ['timestamp', 'message', 'status'],
-                indexes: [],
-                message_display: 'expanded-md',
-                show_date_column: true,
-                show_message_column: true,
-                sort: { column: 'time', order: 'desc' },
-              },
-            },
-          ],
-        },
-      },
       // API Endpoint Errors Group
       {
         definition: {
@@ -299,27 +516,6 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           title: 'API Endpoint Errors',
           layout_type: 'ordered',
           widgets: [
-            {
-              definition: {
-                type: 'toplist',
-                title: 'Top Failing Endpoints (by count)',
-                requests: [
-                  {
-                    response_format: 'scalar',
-                    queries: [
-                      {
-                        data_source: 'rum',
-                        name: 'query1',
-                        compute: { aggregation: 'count' },
-                        search: { query: `service:${service} $env @type:resource @resource.type:(xhr OR fetch) @resource.status_code:>=400` },
-                        indexes: ['*'],
-                        group_by: [{ facet: '@resource.url', limit: 25, sort: { aggregation: 'count', order: 'desc' } }],
-                      },
-                    ],
-                  },
-                ],
-              },
-            },
             {
               definition: {
                 type: 'toplist',
@@ -337,6 +533,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@resource.status_code', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -410,6 +607,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@view.name', limit: 10, sort: { aggregation: 'pc75', metric: '@view.loading_time', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -464,6 +662,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@geo.country', limit: 15, sort: { aggregation: 'count', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -485,6 +684,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@geo.country', limit: 15, sort: { aggregation: 'pc75', metric: '@view.largest_contentful_paint', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -516,6 +716,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@browser.name', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -537,6 +738,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@os.name', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -558,6 +760,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@device.type', limit: 10, sort: { aggregation: 'count', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -586,57 +789,13 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           ],
         },
       },
-      // Frustrated Sessions Group
+      // User Frustration Group
       {
         definition: {
           type: 'group',
           title: 'User Frustration',
           layout_type: 'ordered',
           widgets: [
-            {
-              definition: {
-                type: 'query_value',
-                title: 'Frustrated Sessions',
-                requests: [
-                  {
-                    response_format: 'scalar',
-                    queries: [
-                      {
-                        data_source: 'rum',
-                        name: 'query1',
-                        compute: { aggregation: 'cardinality', metric: '@session.id' },
-                        search: { query: `service:${service} $env @type:error` },
-                        indexes: ['*'],
-                      },
-                    ],
-                  },
-                ],
-                autoscale: true,
-                precision: 0,
-              },
-            },
-            {
-              definition: {
-                type: 'query_value',
-                title: 'Rage Clicks',
-                requests: [
-                  {
-                    response_format: 'scalar',
-                    queries: [
-                      {
-                        data_source: 'rum',
-                        name: 'query1',
-                        compute: { aggregation: 'count' },
-                        search: { query: `service:${service} $env @type:action @action.type:click @action.frustration.type:rage_click` },
-                        indexes: ['*'],
-                      },
-                    ],
-                  },
-                ],
-                autoscale: true,
-                precision: 0,
-              },
-            },
             {
               definition: {
                 type: 'timeseries',
@@ -675,6 +834,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@action.name', limit: 15, sort: { aggregation: 'count', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -706,6 +866,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@resource.url', limit: 15, sort: { aggregation: 'pc75', metric: '@resource.duration', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -727,6 +888,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@resource.url', limit: 15, sort: { aggregation: 'pc75', metric: '@resource.size', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
@@ -748,6 +910,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                         group_by: [{ facet: '@resource.type', limit: 10, sort: { aggregation: 'pc75', metric: '@resource.duration', order: 'desc' } }],
                       },
                     ],
+                    formulas: [{ formula: 'query1' }],
                   },
                 ],
               },
