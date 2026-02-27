@@ -1,6 +1,6 @@
 # 🔭 Datadog Observability — analytics-studio-frontend
 
-> Auto-provisioned by `datadog-frontend-toolkit` on 2/27/2026, 3:58:56 PM
+> Auto-provisioned by `datadog-frontend-toolkit` on 2/27/2026, 4:00:29 PM
 
 | Field | Value |
 |-------|-------|
@@ -81,7 +81,7 @@ Measures frontend availability as the ratio of error-free page views to total pa
 
 ## ⚠️ Errors
 
-- Dashboard: Datadog API error 400: {"errors":["Invalid widget definition at position 2 of type group. Error: Invalid inner widget definition at position 9 of type log_stream. Error: {'field': 'status_line', 'width': 'auto'} is not of type 'string'."]}
+- Dashboard: Datadog API error 400: {"errors":["Invalid widget definition at position 6 of type group. Error: Invalid inner widget definition at position 0 of type timeseries. Error: {'data_source': 'rum', 'name': 'p50', 'compute': {'aggregation': 'p50', 'metric': '@view.largest_contentful_paint'}, 'search': {'query': 'service:analytics-studio-frontend $env @type:view'}, 'indexes': ['*'], 'group_by': []} is not valid under any of the given schemas."]}
 
 ---
-_Generated at 2026-02-27T18:58:56.013Z_
+_Generated at 2026-02-27T19:00:29.846Z_
