@@ -1,6 +1,6 @@
 # 🔭 Datadog Observability — analytics-studio-frontend
 
-> Auto-provisioned by `datadog-frontend-toolkit` on 2/27/2026, 2:55:20 PM
+> Auto-provisioned by `datadog-frontend-toolkit` on 2/27/2026, 3:57:18 PM
 
 | Field | Value |
 |-------|-------|
@@ -10,13 +10,6 @@
 | **Load Profile** | `low` |
 | **Team** | `analyze` |
 | **Notifications** | `slack: as-dd-frontend-alerts-aaaatir7kltbikbocwlajx4snm@perceptyx.slack.com` |
-
-## 📊 Dashboards
-
-> A **Dashboard** is a visual overview that aggregates key metrics, logs, and traces into a single view for real-time monitoring of your service health.
-
-- **analytics-studio-frontend - Frontend Observability**
-  https://app.datadoghq.com/dashboard/ppi-9j8-csz
 
 ## 🚨 Monitors
 
@@ -86,5 +79,9 @@ Measures frontend availability as the ratio of error-free page views to total pa
 
 Measures frontend availability as the ratio of error-free page views to total page views. Target: **99.5%** over 7d and 30d windows.
 
+## ⚠️ Errors
+
+- Dashboard: Datadog API error 400: {"errors":["Additional properties are not allowed ('widget_layout' was unexpected)"]}
+
 ---
-_Generated at 2026-02-27T17:55:20.650Z_
+_Generated at 2026-02-27T18:57:18.690Z_

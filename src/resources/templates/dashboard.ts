@@ -57,12 +57,6 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           tick_edge: 'left',
           tick_pos: '50%',
         },
-        widget_layout: {
-          x: 0,
-          y: 0,
-          width: 12,
-          height: 1,
-        },
       },
       {
         definition: {
