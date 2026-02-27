@@ -60,14 +60,15 @@ export async function status(options: Record<string, string | boolean>): Promise
     if (dashRes.ok) {
       const data = (await dashRes.json()) as { dashboards?: Array<{ id: string; title: string }> };
       const managed = (data.dashboards || []).filter(
-        (d) => d.title === `${service} - Frontend Observability` || 
-               d.title === `${service} (${env}) - Frontend Observability`,
+        (d) => d.title === `${service} - Frontend Observability`,
       );
       // eslint-disable-next-line no-console
       console.log(`  Dashboards: ${managed.length > 0 ? '✅' : '❌'} ${managed.length} found`);
       for (const d of managed) {
         // eslint-disable-next-line no-console
         console.log(`    → ${d.title} (${d.id})`);
+        // eslint-disable-next-line no-console
+        console.log(`      https://app.${site}/dashboard/${d.id}`);
       }
     }
   } catch {
