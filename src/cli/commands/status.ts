@@ -60,7 +60,8 @@ export async function status(options: Record<string, string | boolean>): Promise
     if (dashRes.ok) {
       const data = (await dashRes.json()) as { dashboards?: Array<{ id: string; title: string }> };
       const managed = (data.dashboards || []).filter(
-        (d) => d.title.includes(`${service} - Frontend Observability`) && d.title.includes(env),
+        (d) => d.title === `${service} - Frontend Observability` || 
+               d.title === `${service} (${env}) - Frontend Observability`,
       );
       // eslint-disable-next-line no-console
       console.log(`  Dashboards: ${managed.length > 0 ? '✅' : '❌'} ${managed.length} found`);
