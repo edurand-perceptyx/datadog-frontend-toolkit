@@ -1,6 +1,6 @@
 # 🔭 Datadog Observability — analytics-studio-frontend
 
-> Auto-provisioned by `datadog-frontend-toolkit` on 2/26/2026, 7:08:28 PM
+> Auto-provisioned by `datadog-frontend-toolkit` on 2/27/2026, 2:55:20 PM
 
 | Field | Value |
 |-------|-------|
@@ -87,4 +87,4 @@ Measures frontend availability as the ratio of error-free page views to total pa
 Measures frontend availability as the ratio of error-free page views to total page views. Target: **99.5%** over 7d and 30d windows.
 
 ---
-_Generated at 2026-02-26T22:08:28.813Z_
+_Generated at 2026-02-27T17:55:20.650Z_

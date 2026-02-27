@@ -17,6 +17,16 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
         prefix: 'env',
         default: env,
       },
+      {
+        name: 'region',
+        prefix: 'region',
+        default: '*',
+      },
+      {
+        name: 'cluster_name',
+        prefix: 'cluster_name',
+        default: '*',
+      },
     ],
     widgets: [
       // Header
@@ -36,6 +46,24 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
       // ═══════════════════════════════════════════════════════════════
       // SECTION 1: Production Health — concise, actionable, error-focused
       // ═══════════════════════════════════════════════════════════════
+      {
+        definition: {
+          type: 'note',
+          content: '## 🚨 Production Health\nKey error signals and metrics at a glance',
+          background_color: 'vivid_orange',
+          font_size: '14',
+          text_align: 'center',
+          show_tick: false,
+          tick_edge: 'left',
+          tick_pos: '50%',
+        },
+        widget_layout: {
+          x: 0,
+          y: 0,
+          width: 12,
+          height: 1,
+        },
+      },
       {
         definition: {
           type: 'group',
@@ -282,6 +310,24 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                 ],
               },
             },
+            // Browser Logs Widget - NEW
+            {
+              definition: {
+                type: 'log_stream',
+                title: '📋 Browser Error Logs',
+                indexes: ['*'],
+                query: `service:${service} @env:${env} status:(error OR critical) @type:log`,
+                columns: [
+                  { field: 'status_line', width: 'auto' },
+                  { field: '@timestamp', width: 'auto' },
+                  { field: '@error.message', width: 'auto' },
+                ],
+                show_date_column: true,
+                show_message_column: true,
+                message_display: 'expanded-md',
+                sort: { column: '@timestamp', order: 'desc' },
+              },
+            },
             // Row 4: Error logs trend from Logs product
             {
               definition: {
@@ -501,6 +547,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           type: 'group',
           title: 'Traffic Overview',
           layout_type: 'ordered',
+          background_color: 'vivid_green',
           widgets: [
             {
               definition: {
@@ -546,6 +593,56 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                 precision: 0,
               },
             },
+            // User Sessions Over Time - NEW
+            {
+              definition: {
+                type: 'timeseries',
+                title: 'User Sessions Over Time',
+                show_legend: true,
+                legend_layout: 'auto',
+                legend_columns: ['avg', 'min', 'max', 'value', 'sum'],
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'cardinality', metric: '@session.id' },
+                        search: { query: `service:${service} $env` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            // Views per Minute - NEW
+            {
+              definition: {
+                type: 'timeseries',
+                title: 'Views per Minute',
+                show_legend: true,
+                legend_layout: 'auto',
+                legend_columns: ['avg', 'min', 'max', 'value', 'sum'],
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
           ],
         },
       },
@@ -555,23 +652,57 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           type: 'group',
           title: 'Web Vitals',
           layout_type: 'ordered',
+          background_color: 'vivid_blue',
           widgets: [
             {
               definition: {
                 type: 'timeseries',
                 title: 'Largest Contentful Paint (LCP)',
+                show_legend: true,
+                legend_layout: 'auto',
+                legend_columns: ['avg', 'min', 'max', 'value', 'sum'],
                 requests: [
                   {
                     response_format: 'timeseries',
                     queries: [
                       {
                         data_source: 'rum',
-                        name: 'query1',
+                        name: 'p50',
+                        compute: { aggregation: 'p50', metric: '@view.largest_contentful_paint' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                      {
+                        data_source: 'rum',
+                        name: 'p75',
                         compute: { aggregation: 'pc75', metric: '@view.largest_contentful_paint' },
                         search: { query: `service:${service} $env @type:view` },
                         indexes: ['*'],
                         group_by: [],
                       },
+                      {
+                        data_source: 'rum',
+                        name: 'p90',
+                        compute: { aggregation: 'p90', metric: '@view.largest_contentful_paint' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                      {
+                        data_source: 'rum',
+                        name: 'p95',
+                        compute: { aggregation: 'p95', metric: '@view.largest_contentful_paint' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                    ],
+                    formulas: [
+                      { formula: 'p50', alias: 'P50' },
+                      { formula: 'p75', alias: 'P75' },
+                      { formula: 'p90', alias: 'P90' },
+                      { formula: 'p95', alias: 'P95' },
                     ],
                   },
                 ],
@@ -585,18 +716,51 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
               definition: {
                 type: 'timeseries',
                 title: 'Cumulative Layout Shift (CLS)',
+                show_legend: true,
+                legend_layout: 'auto',
+                legend_columns: ['avg', 'min', 'max', 'value', 'sum'],
                 requests: [
                   {
                     response_format: 'timeseries',
                     queries: [
                       {
                         data_source: 'rum',
-                        name: 'query1',
+                        name: 'p50',
+                        compute: { aggregation: 'p50', metric: '@view.cumulative_layout_shift' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                      {
+                        data_source: 'rum',
+                        name: 'p75',
                         compute: { aggregation: 'pc75', metric: '@view.cumulative_layout_shift' },
                         search: { query: `service:${service} $env @type:view` },
                         indexes: ['*'],
                         group_by: [],
                       },
+                      {
+                        data_source: 'rum',
+                        name: 'p90',
+                        compute: { aggregation: 'p90', metric: '@view.cumulative_layout_shift' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                      {
+                        data_source: 'rum',
+                        name: 'p95',
+                        compute: { aggregation: 'p95', metric: '@view.cumulative_layout_shift' },
+                        search: { query: `service:${service} $env @type:view` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                    ],
+                    formulas: [
+                      { formula: 'p50', alias: 'P50' },
+                      { formula: 'p75', alias: 'P75' },
+                      { formula: 'p90', alias: 'P90' },
+                      { formula: 'p95', alias: 'P95' },
                     ],
                   },
                 ],
@@ -665,6 +829,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           type: 'group',
           title: 'API Endpoint Errors',
           layout_type: 'ordered',
+          background_color: 'vivid_purple',
           widgets: [
             {
               definition: {
@@ -718,6 +883,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           type: 'group',
           title: 'Performance',
           layout_type: 'ordered',
+          background_color: 'cool',
           widgets: [
             {
               definition: {
@@ -771,6 +937,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           type: 'group',
           title: 'Performance by Country',
           layout_type: 'ordered',
+          background_color: 'warm',
           widgets: [
             {
               definition: {
@@ -848,6 +1015,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           type: 'group',
           title: 'Browser & Device Breakdown',
           layout_type: 'ordered',
+          background_color: 'orange',
           widgets: [
             {
               definition: {
@@ -945,6 +1113,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           type: 'group',
           title: 'User Frustration',
           layout_type: 'ordered',
+          background_color: 'vivid_orange',
           widgets: [
             {
               definition: {
@@ -998,6 +1167,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
           type: 'group',
           title: 'Resource Loading',
           layout_type: 'ordered',
+          background_color: 'purple',
           widgets: [
             {
               definition: {
