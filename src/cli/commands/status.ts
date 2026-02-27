@@ -90,6 +90,8 @@ export async function status(options: Record<string, string | boolean>): Promise
         const stateIcon = m.overall_state === 'OK' ? '🟢' : m.overall_state === 'Alert' ? '🔴' : '🟡';
         // eslint-disable-next-line no-console
         console.log(`    ${stateIcon} ${m.name} (${m.overall_state})`);
+        // eslint-disable-next-line no-console
+        console.log(`      https://app.${site}/monitors/${m.id}`);
       }
     }
   } catch {
@@ -110,6 +112,8 @@ export async function status(options: Record<string, string | boolean>): Promise
       for (const s of relevant) {
         // eslint-disable-next-line no-console
         console.log(`    → ${s.name} (${s.id})`);
+        // eslint-disable-next-line no-console
+        console.log(`      https://app.${site}/slo?slo_id=${s.id}`);
       }
     }
   } catch {
