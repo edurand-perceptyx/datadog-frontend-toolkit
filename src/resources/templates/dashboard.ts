@@ -311,11 +311,7 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                 title: '📋 Browser Error Logs',
                 indexes: ['*'],
                 query: `service:${service} @env:${env} status:(error OR critical) @type:log`,
-                columns: [
-                  { field: 'status_line', width: 'auto' },
-                  { field: '@timestamp', width: 'auto' },
-                  { field: '@error.message', width: 'auto' },
-                ],
+                columns: ['status_line', '@timestamp', '@error.message'],
                 show_date_column: true,
                 show_message_column: true,
                 message_display: 'expanded-md',

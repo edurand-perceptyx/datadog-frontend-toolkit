@@ -1,6 +1,6 @@
 # 🔭 Datadog Observability — analytics-studio-frontend
 
-> Auto-provisioned by `datadog-frontend-toolkit` on 2/27/2026, 3:57:18 PM
+> Auto-provisioned by `datadog-frontend-toolkit` on 2/27/2026, 3:58:56 PM
 
 | Field | Value |
 |-------|-------|
@@ -81,7 +81,7 @@ Measures frontend availability as the ratio of error-free page views to total pa
 
 ## ⚠️ Errors
 
-- Dashboard: Datadog API error 400: {"errors":["Additional properties are not allowed ('widget_layout' was unexpected)"]}
+- Dashboard: Datadog API error 400: {"errors":["Invalid widget definition at position 2 of type group. Error: Invalid inner widget definition at position 9 of type log_stream. Error: {'field': 'status_line', 'width': 'auto'} is not of type 'string'."]}
 
 ---
-_Generated at 2026-02-27T18:57:18.690Z_
+_Generated at 2026-02-27T18:58:56.013Z_
