@@ -129,6 +129,14 @@ export interface ProvisioningConfig {
   force?: boolean;
   /** Traffic load size — calibrates monitor thresholds. Default: 'low' */
   loadSize?: LoadSize;
+  /**
+   * Dashboard template variable filters (appear as dropdowns in the dashboard).
+   * Each entry maps a display name to a RUM attribute prefix.
+   * Example: { user: '@context.user', companyId: '@context.companyId' }
+   *
+   * Defaults (Analytics Studio): user, survey, crossProject, companyId
+   */
+  dashboardFilters?: Record<string, string>;
 }
 
 /** Notification channel configuration */

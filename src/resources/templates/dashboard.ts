@@ -2,9 +2,30 @@
  * Dashboard template for Datadog API provisioning.
  * Creates a comprehensive frontend observability dashboard.
  */
-export function buildDashboardPayload(service: string, env: string, team?: string): Record<string, unknown> {
+export const DEFAULT_DASHBOARD_FILTERS: Record<string, string> = {
+  user: '@context.user',
+  survey: '@context.survey',
+  crossProject: '@context.crossProject',
+  companyId: '@context.companyId',
+};
+
+export function buildDashboardPayload(
+  service: string,
+  env: string,
+  team?: string,
+  filters?: Record<string, string>,
+): Record<string, unknown> {
   const tags = team ? [`team:${team}`] : [];
   const tagFilter = tags.map((t) => t).join(',');
+
+  const resolvedFilters = filters ?? DEFAULT_DASHBOARD_FILTERS;
+  const filterVars = Object.entries(resolvedFilters).map(([name, prefix]) => ({
+    name,
+    prefix,
+    default: '*',
+    available_values: [],
+  }));
+  const filterNames = Object.keys(resolvedFilters).map((n) => `\`$${n}\``).join(', ');
 
   return {
     title: `${service} - Frontend Observability`,
@@ -17,22 +38,9 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
         prefix: 'env',
         default: env,
       },
+      ...filterVars,
     ],
     widgets: [
-      // Header
-      {
-        definition: {
-          type: 'note',
-          content: `# ${service} Frontend Observability\n**Auto-provisioned** by datadog-frontend-toolkit — use the \`$env\` dropdown above to filter by environment.\n\n**Top section:** Key signals to detect production issues at a glance. **Bottom section:** Full observability detail for deep investigation.`,
-          background_color: 'blue',
-          font_size: '16',
-          text_align: 'left',
-          show_tick: false,
-          tick_edge: 'left',
-          tick_pos: '50%',
-        },
-      },
-
       // ═══════════════════════════════════════════════════════════════
       // SECTION 1: Production Health — concise, actionable, error-focused
       // ═══════════════════════════════════════════════════════════════
@@ -77,6 +85,33 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                 autoscale: true,
                 precision: 2,
                 custom_unit: '%',
+              },
+            },
+            {
+              definition: {
+                type: 'query_value',
+                title: '⚠️ Error Count (absolute)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                      },
+                    ],
+                    conditional_formats: [
+                      { comparator: '>', value: 100, palette: 'white_on_red' },
+                      { comparator: '>', value: 20, palette: 'white_on_yellow' },
+                      { comparator: '<=', value: 20, palette: 'white_on_green' },
+                    ],
+                  },
+                ],
+                autoscale: true,
+                precision: 0,
               },
             },
             {
@@ -709,6 +744,61 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
                 ],
               },
             },
+            {
+              definition: {
+                type: 'timeseries',
+                title: '4xx vs 5xx Trend',
+                requests: [
+                  {
+                    response_format: 'timeseries',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'client_errors',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:resource @resource.type:(xhr OR fetch) @resource.status_code:[400 TO 499]` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                      {
+                        data_source: 'rum',
+                        name: 'server_errors',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:resource @resource.type:(xhr OR fetch) @resource.status_code:[500 TO 599]` },
+                        indexes: ['*'],
+                        group_by: [],
+                      },
+                    ],
+                    formulas: [
+                      { formula: 'client_errors', alias: '4xx Client Errors' },
+                      { formula: 'server_errors', alias: '5xx Server Errors' },
+                    ],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: '🔍 404 Not Found — Endpoints',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:resource @resource.type:(xhr OR fetch) @resource.status_code:404` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@resource.url', limit: 15, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
           ],
         },
       },
@@ -1066,6 +1156,19 @@ export function buildDashboardPayload(service: string, env: string, team?: strin
               },
             },
           ],
+        },
+      },
+      // Info note
+      {
+        definition: {
+          type: 'note',
+          content: `# ${service} Frontend Observability\n**Auto-provisioned** by datadog-frontend-toolkit — use the \`$env\` dropdown above to filter by environment.${filterNames ? `\n**Filters:** ${filterNames} — use the dropdowns above to narrow data by user, survey, project, or company.` : ''}\n\n**Top section:** Key signals to detect production issues at a glance. **Bottom section:** Full observability detail for deep investigation.`,
+          background_color: 'blue',
+          font_size: '16',
+          text_align: 'left',
+          show_tick: false,
+          tick_edge: 'left',
+          tick_pos: '50%',
         },
       },
       // Footer tag info

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { ResourceProvisioner } from '../../resources/ResourceProvisioner';
 import type { ProvisioningConfig, LoadSize, NotificationChannel } from '../../types/config';
 import { LOAD_SIZE_LABELS } from '../../resources/templates/monitors';
+import { DEFAULT_DASHBOARD_FILTERS } from '../../resources/templates/dashboard';
 import { prompt, promptSecret, confirm, selectOrCustom, select } from '../prompt';
 
 /**
@@ -129,6 +130,26 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     }
   }
 
+  // Dashboard filters: --filter name:@context.attr → template variables
+  let dashboardFilters: Record<string, string> | undefined;
+  const filterArg = options['filter'] as string | undefined;
+  const noFilters = !!options['noFilters'];
+
+  if (noFilters) {
+    dashboardFilters = {};
+  } else if (filterArg) {
+    dashboardFilters = {};
+    for (const raw of filterArg.split(',')) {
+      const sep = raw.indexOf(':');
+      if (sep > 0) {
+        const name = raw.substring(0, sep).trim();
+        const prefix = raw.substring(sep + 1).trim();
+        dashboardFilters[name] = prefix;
+      }
+    }
+  }
+  // If neither --filter nor --no-filters → undefined → defaults applied in dashboard builder
+
   const dryRun = !!options['dryRun'];
   const force = !!options['force'];
   const remove = !!options['remove'];
@@ -238,6 +259,7 @@ export async function setup(options: Record<string, string | boolean>): Promise<
     force,
     loadSize,
     notificationChannels,
+    dashboardFilters,
     tags: [`service:${service}`, `env:${env}`, ...(team ? [`team:${team}`] : [])],
   };
 
@@ -269,6 +291,15 @@ export async function setup(options: Record<string, string | boolean>): Promise<
   } else {
     // eslint-disable-next-line no-console
     console.log(`  Notify:      (none)`);
+  }
+  const effectiveFilters = dashboardFilters ?? DEFAULT_DASHBOARD_FILTERS;
+  const filterCount = Object.keys(effectiveFilters).length;
+  if (filterCount > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`  Filters:     ${Object.entries(effectiveFilters).map(([n, p]) => `${n} → ${p}`).join(', ')}`);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log(`  Filters:     (none)`);
   }
   if (force) {
     // eslint-disable-next-line no-console

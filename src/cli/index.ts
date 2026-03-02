@@ -33,6 +33,10 @@ const HELP_TEXT = `
                         pagerduty: @pagerduty-my-service
                         webhook: @webhook-my-hook
                         opsgenie: @opsgenie-my-team
+    --filter          Dashboard filter variable (repeatable). Format: name:@context.attr
+                        Default filters: user, survey, crossProject, companyId
+                        Example: --filter user:@context.user --filter org:@context.orgId
+    --no-filters      Disable default dashboard filter variables
     --force           Update existing resources instead of skipping them
     --remove          Delete all toolkit-managed resources for the given service/env
     --yes, -y         Skip interactive prompts (create all resources)
@@ -88,6 +92,11 @@ function parseArgs(args: string[]): Record<string, string | boolean> {
     } else if (arg === '--notify' && args[i + 1]) {
       const val = args[++i];
       parsed['notify'] = parsed['notify'] ? `${parsed['notify']},${val}` : val;
+    } else if (arg === '--filter' && args[i + 1]) {
+      const val = args[++i];
+      parsed['filter'] = parsed['filter'] ? `${parsed['filter']},${val}` : val;
+    } else if (arg === '--no-filters') {
+      parsed['noFilters'] = true;
     }
   }
 

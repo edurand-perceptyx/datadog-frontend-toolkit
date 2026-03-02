@@ -54,7 +54,7 @@ export class ResourceProvisioner {
     // Dashboards
     if (config.dashboards !== false) {
       try {
-        const dashboard = await this.provisionDashboard(service, env, config.team, force);
+        const dashboard = await this.provisionDashboard(service, env, config.team, force, config.dashboardFilters);
         if (dashboard) result.dashboards.push(dashboard);
       } catch (err) {
         result.errors.push(`Dashboard: ${err instanceof Error ? err.message : String(err)}`);
@@ -95,9 +95,10 @@ export class ResourceProvisioner {
     env: string,
     team?: string,
     force?: boolean,
+    filters?: Record<string, string>,
   ): Promise<{ id: string; title: string; url: string } | null> {
     const existing = await this.findExistingDashboard(service, env);
-    const payload = buildDashboardPayload(service, env, team);
+    const payload = buildDashboardPayload(service, env, team, filters);
 
     if (existing && force) {
       const response = await this.apiRequest('PUT', `/v1/dashboard/${existing.id}`, payload);
@@ -151,8 +152,15 @@ export class ResourceProvisioner {
         };
 
         if (existing && force) {
+          // Datadog does not allow changing monitor type via PUT — delete and recreate
+          if (existing.type && existing.type !== template.type) {
+            await this.apiRequest('DELETE', `/v1/monitor/${existing.id}?force=true`);
+            const response = await this.apiRequest('POST', '/v1/monitor', monitorPayload);
+            created.push({ id: response.id as number, name: response.name as string });
+            continue;
+          }
           await this.apiRequest('PUT', `/v1/monitor/${existing.id}`, monitorPayload);
-          created.push(existing);
+          created.push({ id: existing.id, name: existing.name });
           continue;
         }
 
@@ -419,7 +427,7 @@ export class ResourceProvisioner {
 
   private async findExistingMonitor(
     name: string,
-  ): Promise<{ id: number; name: string } | null> {
+  ): Promise<{ id: number; name: string; type?: string } | null> {
     try {
       // First try searching by managed tag
       const response = await this.apiRequest(
@@ -433,7 +441,7 @@ export class ResourceProvisioner {
       );
 
       if (existing) {
-        return { id: existing.id as number, name: existing.name as string };
+        return { id: existing.id as number, name: existing.name as string, type: existing.type as string | undefined };
       }
 
       // Fallback: search by name across all monitors (for resources created before managed tag was added)
@@ -446,7 +454,7 @@ export class ResourceProvisioner {
         (m: Record<string, unknown>) => m.name === name,
       );
       if (byName) {
-        return { id: byName.id as number, name: byName.name as string };
+        return { id: byName.id as number, name: byName.name as string, type: byName.type as string | undefined };
       }
     } catch {
       // If search fails, proceed with creation

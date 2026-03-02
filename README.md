@@ -394,13 +394,15 @@ npx datadog-frontend-toolkit status -s my-app -e production
 **Dashboard (1):**
 - Frontend Observability overview with RUM metrics, Web Vitals, error tracking, API endpoint errors, and performance panels
 
-**Monitors (6):** — thresholds adapt to your `--load-size` profile
+**Monitors (8):** — thresholds adapt to your `--load-size` profile
 - High Frontend Error Rate
 - Poor LCP Performance (avg LCP > 3s)
 - High CLS Score (avg CLS > 0.2)
 - JS Error Spike
 - Error Log Anomaly
 - Slow Page Load (avg loading time > 5s)
+- Failed API Calls (4xx/5xx)
+- Repeated 404 on API Endpoints
 
 ### Traffic Load Profiles (`--load-size`)
 
@@ -463,6 +465,46 @@ Add another notification target? (y/N):
 ```
 
 When using `-y` (skip prompts) without `--notify`, no notification channels are configured.
+
+### Dashboard Filters (`--filter`)
+
+Add template variable dropdowns to the dashboard for filtering RUM data by custom context attributes. By default, four filters are included based on common RUM global context properties:
+
+| Filter | RUM Attribute | Description |
+|--------|---------------|-------------|
+| `user` | `@context.user` | Filter by user ID |
+| `survey` | `@context.survey` | Filter by survey ID |
+| `crossProject` | `@context.crossProject` | Filter by cross-project ID |
+| `companyId` | `@context.companyId` | Filter by company ID |
+
+These defaults match the standard `datadogRum.setGlobalContextProperty()` calls:
+
+```typescript
+datadogRum.setGlobalContextProperty('user', userId);
+datadogRum.setGlobalContextProperty('survey', surveyId);
+datadogRum.setGlobalContextProperty('crossProject', crossProjectId);
+datadogRum.setGlobalContextProperty('companyId', companyId);
+```
+
+The `--filter` flag is **repeatable** and uses the format `name:@context.attribute`:
+
+```bash
+# Use default filters (user, survey, crossProject, companyId)
+npx datadog-frontend-toolkit setup -s my-app -e production --force
+
+# Custom filters (replaces defaults)
+npx datadog-frontend-toolkit setup -s my-app -e production \
+  --filter user:@context.user \
+  --filter org:@context.orgId \
+  --filter tenant:@context.tenantId
+
+# Disable all filters
+npx datadog-frontend-toolkit setup -s my-app -e production --no-filters
+```
+
+When `--filter` is provided, only the specified filters are used (defaults are replaced). When neither `--filter` nor `--no-filters` is provided, the four default filters are applied automatically.
+
+> **Note:** Filters only work if your frontend sets the corresponding RUM global context properties via `datadogRum.setGlobalContextProperty()`. The dashboard dropdowns will show `*` (all) by default and populate with actual values once data flows in.
 
 **SLOs (2) — environment-aware targets:**
 

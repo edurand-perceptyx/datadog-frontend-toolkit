@@ -26,6 +26,8 @@ interface MonitorThresholds {
   errorRate: { critical: number; warning: number; window: string };
   jsSpike: { critical: number; warning: number; window: string };
   logAnomaly: { critical: number; warning: number; window: string };
+  failedApiCalls: { critical: number; warning: number; window: string };
+  backend404: { critical: number; warning: number; window: string };
   lcpWindow: string;
   clsWindow: string;
   pageLoadWindow: string;
@@ -36,6 +38,8 @@ export const THRESHOLDS_BY_LOAD: Record<LoadSize, MonitorThresholds> = {
     errorRate: { critical: 10, warning: 5, window: '15m' },
     jsSpike: { critical: 25, warning: 10, window: '15m' },
     logAnomaly: { critical: 50, warning: 25, window: '15m' },
+    failedApiCalls: { critical: 15, warning: 5, window: '15m' },
+    backend404: { critical: 20, warning: 10, window: '15m' },
     lcpWindow: '4h',
     clsWindow: '4h',
     pageLoadWindow: '4h',
@@ -44,6 +48,8 @@ export const THRESHOLDS_BY_LOAD: Record<LoadSize, MonitorThresholds> = {
     errorRate: { critical: 50, warning: 25, window: '10m' },
     jsSpike: { critical: 100, warning: 50, window: '10m' },
     logAnomaly: { critical: 200, warning: 100, window: '15m' },
+    failedApiCalls: { critical: 75, warning: 30, window: '10m' },
+    backend404: { critical: 50, warning: 25, window: '10m' },
     lcpWindow: '1h',
     clsWindow: '1h',
     pageLoadWindow: '1h',
@@ -52,6 +58,8 @@ export const THRESHOLDS_BY_LOAD: Record<LoadSize, MonitorThresholds> = {
     errorRate: { critical: 200, warning: 100, window: '5m' },
     jsSpike: { critical: 500, warning: 200, window: '5m' },
     logAnomaly: { critical: 500, warning: 250, window: '10m' },
+    failedApiCalls: { critical: 300, warning: 150, window: '5m' },
+    backend404: { critical: 150, warning: 75, window: '5m' },
     lcpWindow: '30m',
     clsWindow: '30m',
     pageLoadWindow: '30m',
@@ -60,6 +68,8 @@ export const THRESHOLDS_BY_LOAD: Record<LoadSize, MonitorThresholds> = {
     errorRate: { critical: 500, warning: 250, window: '5m' },
     jsSpike: { critical: 1000, warning: 500, window: '5m' },
     logAnomaly: { critical: 2000, warning: 1000, window: '10m' },
+    failedApiCalls: { critical: 750, warning: 350, window: '5m' },
+    backend404: { critical: 500, warning: 250, window: '5m' },
     lcpWindow: '15m',
     clsWindow: '15m',
     pageLoadWindow: '15m',
@@ -146,6 +156,9 @@ export function buildMonitorTemplates(
     rumPerformance: `https://app.datadoghq.com/rum/performance-monitoring?query=${baseQuery}`,
     logErrors: `https://app.datadoghq.com/logs?query=${baseQuery}%20status%3Aerror`,
     logPatterns: `https://app.datadoghq.com/logs/patterns?query=${baseQuery}%20status%3Aerror`,
+    rumResources: `https://app.datadoghq.com/rum/explorer?query=${baseQuery}%20%40type%3Aresource%20%40resource.status_code%3A%3E%3D400`,
+    rumResources404: `https://app.datadoghq.com/rum/explorer?query=${baseQuery}%20%40type%3Aresource%20%40resource.status_code%3A404`,
+    log404: `https://app.datadoghq.com/logs?query=${baseQuery}%20%40http.status_code%3A404`,
     events: `https://app.datadoghq.com/event/explorer?query=${svcEnc}`,
     bitsAi: `https://app.datadoghq.com/bits-ai/monitors/supported`,
   };
@@ -300,6 +313,64 @@ export function buildMonitorTemplates(
       tags,
       options: {
         thresholds: { critical: t.logAnomaly.critical, warning: t.logAnomaly.warning },
+        notify_no_data: false,
+        renotify_interval: 30,
+        include_tags: true,
+      },
+    },
+
+    // Failed API Calls Monitor (RUM)
+    {
+      name: `${service} (${env}) - Failed API Calls (4xx/5xx)`,
+      type: 'rum alert',
+      query: `rum("service:${service} env:${env} @type:resource @resource.type:(xhr OR fetch) @resource.status_code:>=400").rollup("count").last("${t.failedApiCalls.window}") > ${t.failedApiCalls.critical}`,
+      message: `## Failed API Calls (4xx/5xx)\n\n**Monitor:** {{monitor_name}}\n**Service:** ${service}\n**Environment:** ${env}\n**Load Profile:** ${loadSize}\n**Triggered Value:** {{value}} failed calls (threshold: {{threshold}})\n\nThe number of failed API calls (HTTP 4xx/5xx from XHR/fetch) has exceeded ${t.failedApiCalls.critical} in ${t.failedApiCalls.window}.\n\n### Common Causes\n- **Backend deployment regression** — a new backend release returning unexpected errors\n- **Expired or invalid auth tokens** — 401/403 responses from session/token issues\n- **Removed or renamed endpoints** — 404s from API contract changes not reflected in the frontend\n- **Rate limiting** — 429 responses from hitting API or third-party rate limits\n- **Server overload** — 500/502/503 from backend capacity issues\n- **Network/infrastructure issues** — DNS, CDN, or load balancer misconfigurations\n
+### 📋 Recommended Actions
+1. **Check the status code breakdown** — open [RUM Resources](${links.rumResources}) and group by \`@resource.status_code\` to understand if it's mostly 4xx or 5xx.
+2. **Identify the failing endpoints** — in [RUM Resources](${links.rumResources}), group by \`@resource.url\` to see which API endpoints are failing.
+3. **Correlate with backend logs** — open [Log Explorer](${links.logErrors}) and look for the same endpoints returning errors.
+4. **Check for recent deploys** — open [Event Explorer](${links.events}) for backend or frontend deployments that correlate.
+5. **Check auth flows** — if 401/403 are dominant, investigate session expiry, token refresh, or permission changes.
+6. **Check for rate limiting** — if 429 is present, review API quotas and implement backoff/retry strategies.
+7. **Verify endpoint contracts** — if 404 is dominant, check if the backend removed or renamed endpoints.
+
+### 🔍 Investigate
+- [RUM Resources (4xx/5xx)](${links.rumResources}) — failed API calls with URL, status code, and timing
+- [Log Explorer (errors)](${links.logErrors}) — correlated backend error logs
+- [Event Explorer](${links.events}) — recent deploys, config changes, and incidents
+- [Bits AI SRE](${links.bitsAi}) — AI-powered root cause analysis${notify}`,
+      tags,
+      options: {
+        thresholds: { critical: t.failedApiCalls.critical, warning: t.failedApiCalls.warning },
+        notify_no_data: false,
+        renotify_interval: 30,
+        include_tags: true,
+      },
+    },
+
+    // Repeated 404 on API Endpoints (RUM)
+    {
+      name: `${service} (${env}) - Repeated 404 on API Endpoints`,
+      type: 'rum alert',
+      query: `rum("service:${service} env:${env} @type:resource @resource.type:(xhr OR fetch) @resource.status_code:404").rollup("count").last("${t.backend404.window}") > ${t.backend404.critical}`,
+      message: `## Repeated 404 on API Endpoints\n\n**Monitor:** {{monitor_name}}\n**Service:** ${service}\n**Environment:** ${env}\n**Load Profile:** ${loadSize}\n**Triggered Value:** {{value}} 404 responses (threshold: {{threshold}})\n\nAPI endpoints are returning HTTP 404 (Not Found) repeatedly — ${t.backend404.critical}+ hits in ${t.backend404.window}.\n\n### Common Causes\n- **Removed or renamed API routes** — a backend deployment removed or changed a URL that the frontend still calls\n- **Misconfigured routing** — reverse proxy, load balancer, or API gateway routing rules changed\n- **Feature flag mismatch** — frontend expects an endpoint that's behind a feature flag not enabled in this environment\n- **CDN/cache purge** — assets or API responses cached at a URL that no longer exists\n- **Database-driven routes** — dynamic routes that depend on deleted or unpublished records\n\n### 📋 Recommended Actions
+1. **Identify which endpoints are 404ing** — open [RUM Resources (404)](${links.rumResources404}) and group by \`@resource.url\` to see the most affected endpoints.
+2. **Check affected users** — in the RUM Explorer, check which views/sessions are hitting the 404 endpoints.
+3. **Correlate with deploys** — open [Event Explorer](${links.events}) and check if a recent backend deploy removed or renamed the endpoint.
+4. **Check routing config** — verify API gateway, reverse proxy, or load balancer rules haven't changed.
+5. **Verify feature flags** — ensure the endpoint isn't gated behind a flag that's disabled in this environment.
+6. **Check backend logs** — open [Log Explorer](${links.logErrors}) to see if the backend is logging the 404 responses with additional context.
+7. **Fix the mismatch** — either restore the endpoint, add a redirect, or update the frontend to use the new URL.
+
+### 🔍 Investigate
+- [RUM Resources (404)](${links.rumResources404}) — 404 API calls with URL, timing, and user context
+- [RUM Resources (all errors)](${links.rumResources}) — all failed API calls for broader context
+- [Log Explorer (errors)](${links.logErrors}) — correlated backend error logs
+- [Event Explorer](${links.events}) — recent deploys, config changes, and incidents
+- [Bits AI SRE](${links.bitsAi}) — AI-powered root cause analysis${notify}`,
+      tags,
+      options: {
+        thresholds: { critical: t.backend404.critical, warning: t.backend404.warning },
         notify_no_data: false,
         renotify_interval: 30,
         include_tags: true,
