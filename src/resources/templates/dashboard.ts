@@ -581,6 +581,50 @@ export function buildDashboardPayload(
                 precision: 0,
               },
             },
+            {
+              definition: {
+                type: 'toplist',
+                title: '👤 Affected Users (by errors)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@context.user', limit: 25, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
+            {
+              definition: {
+                type: 'toplist',
+                title: '🏢 Affected Companies (by errors)',
+                requests: [
+                  {
+                    response_format: 'scalar',
+                    queries: [
+                      {
+                        data_source: 'rum',
+                        name: 'query1',
+                        compute: { aggregation: 'count' },
+                        search: { query: `service:${service} $env @type:error` },
+                        indexes: ['*'],
+                        group_by: [{ facet: '@context.companyId', limit: 25, sort: { aggregation: 'count', order: 'desc' } }],
+                      },
+                    ],
+                    formulas: [{ formula: 'query1' }],
+                  },
+                ],
+              },
+            },
           ],
         },
       },
